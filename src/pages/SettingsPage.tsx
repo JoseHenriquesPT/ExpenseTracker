@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "../db/live";
 import { db, ensureConfig } from "../db/db";
 import type { Config } from "../db/types";
@@ -22,6 +22,27 @@ export default function SettingsPage() {
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState("");
+
+  // Person names are edited locally and committed with the Save button — typing
+  // no longer fires a DB write per keystroke. Seed from config, and re-sync when
+  // the stored names change *unless* there are unsaved edits (don't clobber).
+  const [names, setNames] = useState<{ p1: string; p2: string } | null>(null);
+  useEffect(() => {
+    if (!config) return;
+    setNames((d) =>
+      d && (d.p1 !== config.p1Name || d.p2 !== config.p2Name)
+        ? d
+        : { p1: config.p1Name, p2: config.p2Name }
+    );
+  }, [config?.p1Name, config?.p2Name]);
+
+  const namesDirty =
+    !!config && !!names && (names.p1 !== config.p1Name || names.p2 !== config.p2Name);
+
+  async function saveNames() {
+    if (!config?.id || !names || !namesDirty) return;
+    await db.config.put({ ...config, p1Name: names.p1, p2Name: names.p2 });
+  }
 
   async function addCategory(key: ListKey, raw: string) {
     const value = raw.trim();
@@ -49,11 +70,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function renamePerson(which: "p1Name" | "p2Name", value: string) {
-    if (!config?.id) return;
-    await db.config.put({ ...config, [which]: value });
-  }
-
   if (!config) return <div className="empty">Loading…</div>;
 
   return (
@@ -67,19 +83,27 @@ export default function SettingsPage() {
           <div className="field">
             <label>Person 1 (P1)</label>
             <input
-              value={config.p1Name}
-              onChange={(e) => renamePerson("p1Name", e.target.value)}
-              disabled={!online}
+              value={names?.p1 ?? ""}
+              onChange={(e) => setNames((d) => ({ p1: e.target.value, p2: d?.p2 ?? "" }))}
+              disabled={!online || !names}
             />
           </div>
           <div className="field">
             <label>Person 2 (P2)</label>
             <input
-              value={config.p2Name}
-              onChange={(e) => renamePerson("p2Name", e.target.value)}
-              disabled={!online}
+              value={names?.p2 ?? ""}
+              onChange={(e) => setNames((d) => ({ p1: d?.p1 ?? "", p2: e.target.value }))}
+              disabled={!online || !names}
             />
           </div>
+        </div>
+        <div className="toolbar" style={{ marginTop: 12, marginBottom: 0 }}>
+          <button className="primary" onClick={saveNames} disabled={!online || !namesDirty}>
+            Save
+          </button>
+          {namesDirty && (
+            <span className="subtitle" style={{ margin: 0 }}>Unsaved changes</span>
+          )}
         </div>
       </div>
 

@@ -5,12 +5,14 @@ import {
   BarChart, Bar, XAxis, YAxis, Legend, CartesianGrid,
 } from "recharts";
 import { db } from "../db/db";
-import type { Person } from "../db/types";
+import type { Person, SettlementRecord } from "../db/types";
 import {
   buildOverview, computeSettlement, monthStart, monthEnd, yearStart, yearEnd,
-  type CategoryTotal, type Settlement,
+  toISO, type CategoryTotal, type Settlement,
 } from "../lib/finance";
 import { fmtMoney } from "../lib/format";
+import { useOnline } from "../lib/useOnline";
+import { confirm } from "../lib/confirm";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -31,13 +33,17 @@ export default function Dashboard() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
 
+  const online = useOnline();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const income = useLiveQuery(() => db.income.toArray(), []);
   const expenses = useLiveQuery(() => db.expenses.toArray(), []);
+  const personal = useLiveQuery(() => db.personalExpenses.toArray(), []);
   const investments = useLiveQuery(() => db.investments.toArray(), []);
   const billPayments = useLiveQuery(() => db.billPayments.toArray(), []);
+  const settlements = useLiveQuery(() => db.settlements.toArray(), []);
 
-  const ready = config && income && expenses && investments && billPayments;
+  const ready =
+    config && income && expenses && personal && investments && billPayments && settlements;
 
   const [start, end] = useMemo(
     () =>
@@ -53,10 +59,12 @@ export default function Dashboard() {
     // Investments carry no person attribution, so they show in full in every view.
     const fIncome = who === "Both" ? income : income.filter((r) => r.person === who);
     const fExpenses = who === "Both" ? expenses : expenses.filter((r) => r.paidBy === who);
+    const fPersonal = who === "Both" ? personal : personal.filter((r) => r.person === who);
     const fBills = who === "Both" ? billPayments : billPayments.filter((r) => r.paidBy === who);
     return buildOverview(
       {
-        income: fIncome, expenses: fExpenses, billPayments: fBills, investments,
+        income: fIncome, expenses: fExpenses, personalExpenses: fPersonal,
+        billPayments: fBills, investments,
         incomeCategories: config.incomeCategories,
         expenseCategories: config.expenseCategories,
         billCategories: config.billCategories,
@@ -64,12 +72,12 @@ export default function Dashboard() {
       },
       start, end
     );
-  }, [ready, who, start, end, config, income, expenses, investments, billPayments]);
+  }, [ready, who, start, end, config, income, expenses, personal, investments, billPayments]);
 
   const settlement = useMemo(() => {
     if (!ready) return null;
-    return computeSettlement({ income, expenses, billPayments }, start, end);
-  }, [ready, start, end, income, expenses, billPayments]);
+    return computeSettlement({ income, expenses, billPayments, settlements }, start, end);
+  }, [ready, start, end, income, expenses, billPayments, settlements]);
 
   const years = useMemo(() => {
     const base = now.getFullYear();
@@ -84,6 +92,7 @@ export default function Dashboard() {
   const totalsBar = [
     { name: "Income", value: overview.totalIncome },
     { name: "Expenses", value: overview.totalExpenses },
+    { name: "Individual", value: overview.totalPersonal },
     { name: "Bills", value: overview.totalBills },
     { name: "Investments", value: overview.totalInvestments },
     { name: "Saved", value: overview.totalSaved },
@@ -123,15 +132,16 @@ export default function Dashboard() {
 
       {who !== "Both" && (
         <p className="subtitle" style={{ marginTop: -8 }}>
-          Showing <strong>{who === "P1" ? p1 : p2}</strong>: their income, and what they
-          paid out of pocket (expenses + bills they fronted). Investments aren’t
-          attributed to a person, so they appear in full.
+          Showing <strong>{who === "P1" ? p1 : p2}</strong>: their income, their individual
+          expenses, and what they paid out of pocket (common expenses + bills they fronted).
+          Investments aren’t attributed to a person, so they appear in full.
         </p>
       )}
 
       <div className="cards">
         <Card label="Total Income" value={overview.totalIncome} tone="pos" />
-        <Card label="Total Expenses" value={overview.totalExpenses} tone="neg" />
+        <Card label="Common Expenses" value={overview.totalExpenses} tone="neg" />
+        <Card label="Individual Expenses" value={overview.totalPersonal} tone="neg" />
         <Card label="Total Bills" value={overview.totalBills} tone="neg" />
         <Card label="Total Investments" value={overview.totalInvestments} />
         <Card label="Total Saved" value={overview.totalSaved}
@@ -139,14 +149,22 @@ export default function Dashboard() {
       </div>
 
       {who === "Both" && (
-        <SettlementPanel s={settlement} p1={p1} p2={p2} periodLabel={
-          mode === "monthly" ? `${MONTHS[month - 1]} ${year}` : `${year}`
-        } />
+        <SettlementPanel
+          s={settlement}
+          p1={p1}
+          p2={p2}
+          start={start}
+          end={end}
+          online={online}
+          settlements={settlements ?? []}
+          periodLabel={mode === "monthly" ? `${MONTHS[month - 1]} ${year}` : `${year}`}
+        />
       )}
 
       <div className="charts">
         <PieCard title="Income by category" data={overview.income} />
-        <PieCard title="Expenses by category" data={overview.expenses} />
+        <PieCard title="Common expenses by category" data={overview.expenses} />
+        <PieCard title="Individual expenses by category" data={overview.personal} />
         <PieCard title="Bills by category" data={overview.bills} />
         <PieCard title="Investments by category" data={overview.investments} />
       </div>
@@ -172,25 +190,92 @@ export default function Dashboard() {
 }
 
 function SettlementPanel({
-  s, p1, p2, periodLabel,
-}: { s: Settlement; p1: string; p2: string; periodLabel: string }) {
+  s, p1, p2, start, end, online, settlements, periodLabel,
+}: {
+  s: Settlement; p1: string; p2: string;
+  start: string; end: string; online: boolean;
+  settlements: SettlementRecord[]; periodLabel: string;
+}) {
   const name = (p: "P1" | "P2") => (p === "P1" ? p1 : p2);
   const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
+
+  // Transfers already recorded for *this* period — used to undo.
+  const recorded = settlements.filter(
+    (r) => r.periodStart === start && r.periodEnd === end
+  );
+  const hasSettlement = Math.abs(s.settledNetP1) > 0.005;
+
+  async function settle() {
+    if (!s.from || !s.to || s.amount === 0) return;
+    const ok = await confirm({
+      title: "Record settlement",
+      message: `Record that ${name(s.from)} transferred ${fmtMoney(s.amount)} to ${name(
+        s.to
+      )} for ${periodLabel}? This clears the balance for this period.`,
+      confirmLabel: "Mark settled",
+    });
+    if (!ok) return;
+    await db.settlements.add({
+      date: toISO(new Date()),
+      periodStart: start,
+      periodEnd: end,
+      from: s.from,
+      to: s.to,
+      amount: s.amount,
+    });
+  }
+
+  async function unsettle() {
+    if (!recorded.length) return;
+    const ok = await confirm({
+      title: "Undo settlement",
+      message: `Remove the recorded settlement${
+        recorded.length > 1 ? "s" : ""
+      } for ${periodLabel}? The balance will show as unsettled again.`,
+      confirmLabel: "Undo",
+      danger: true,
+    });
+    if (!ok) return;
+    for (const r of recorded) if (r.id != null) await db.settlements.delete(r.id);
+  }
 
   return (
     <div className="panel" style={{ marginBottom: 20 }}>
       <h3 style={{ marginTop: 0 }}>Settlement — {periodLabel}</h3>
 
       <div className="settle-result">
-        {s.amount === 0 ? (
-          <span className="value pos">All settled — no transfer needed.</span>
-        ) : (
-          <span className="value">
-            <strong>{name(s.from!)}</strong> transfers{" "}
-            <strong className="amount">{fmtMoney(s.amount)}</strong> to{" "}
-            <strong>{name(s.to!)}</strong>
-          </span>
-        )}
+        <span className="value">
+          {s.amount === 0 ? (
+            <span className="pos">
+              {hasSettlement
+                ? `All settled ✓ — transfer recorded for ${periodLabel}.`
+                : "All settled — no transfer needed."}
+            </span>
+          ) : (
+            <>
+              <strong>{name(s.from!)}</strong> transfers{" "}
+              <strong className="amount">{fmtMoney(s.amount)}</strong> to{" "}
+              <strong>{name(s.to!)}</strong>
+              {hasSettlement && (
+                <span className="subtitle" style={{ marginLeft: 8 }}>
+                  · {fmtMoney(Math.abs(s.settledNetP1))} already transferred
+                </span>
+              )}
+            </>
+          )}
+        </span>
+        <div className="settle-actions">
+          {s.amount > 0 && (
+            <button className="primary" onClick={settle} disabled={!online}>
+              Settle
+            </button>
+          )}
+          {recorded.length > 0 && (
+            <button className="ghost danger" onClick={unsettle} disabled={!online}>
+              Undo settlement
+            </button>
+          )}
+        </div>
       </div>
 
       {s.usedFallbackShare && (

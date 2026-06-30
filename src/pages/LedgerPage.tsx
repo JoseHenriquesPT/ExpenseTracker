@@ -7,13 +7,15 @@ import type {
 import { toISO } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
 import { useOnline } from "../lib/useOnline";
+import { confirm } from "../lib/confirm";
 
-type Kind = "expenses" | "income" | "investments";
+type Kind = "expenses" | "income" | "investments" | "personalExpenses";
 
 const TITLES: Record<Kind, string> = {
   expenses: "Common Expenses",
   income: "Income",
   investments: "Investments",
+  personalExpenses: "Individual Expenses",
 };
 
 type Row = Entry &
@@ -25,6 +27,7 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
   const isInvestment = kind === "investments";
   const isExpense = kind === "expenses";
   const isIncome = kind === "income";
+  const isPersonal = kind === "personalExpenses";
   const online = useOnline();
 
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
@@ -35,7 +38,7 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
 
   const categories = !config
     ? []
-    : isExpense
+    : isExpense || isPersonal
     ? config.expenseCategories
     : isIncome
     ? config.incomeCategories
@@ -63,6 +66,8 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
       await db.investments.add({ date, value: num, category, action, description });
     } else if (isExpense) {
       await db.expenses.add({ date, value: num, category, paidBy: person, description });
+    } else if (isPersonal) {
+      await db.personalExpenses.add({ date, value: num, category, person, description });
     } else {
       await db.income.add({ date, value: num, category, person, description });
     }
@@ -70,8 +75,17 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
     setDescription("");
   }
 
-  async function remove(id?: number) {
-    if (id != null) await db[kind].delete(id);
+  async function remove(r: Row) {
+    if (r.id == null) return;
+    const ok = await confirm({
+      title: "Delete entry",
+      message: `Remove ${r.category} — ${fmtMoney(r.value)}${
+        r.description ? ` (${r.description})` : ""
+      }? This can't be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (ok) await db[kind].delete(r.id);
   }
 
   const total = (rows ?? []).reduce(
@@ -80,6 +94,8 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
     0
   );
 
+  // Income, Common Expenses and Individual Expenses all attribute to a person.
+  const hasPerson = isExpense || isIncome || isPersonal;
   const personColTitle = isExpense ? "Paid by" : "Person";
 
   return (
@@ -89,27 +105,28 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
         {isInvestment ? "Net" : "Total"} recorded:{" "}
         <strong>{fmtMoney(total)}</strong> · {rows?.length ?? 0} entries
         {isExpense && " · shared cost, settled monthly on the Dashboard"}
+        {isPersonal && " · personal — not shared, not settled"}
       </p>
 
       <div className="panel">
-        <table>
+        <table className="cards-on-mobile">
           <thead>
             <tr>
               <th>Date</th>
               <th className="num">Value</th>
               <th>Category</th>
               {isInvestment && <th>Action</th>}
-              {(isExpense || isIncome) && <th>{personColTitle}</th>}
+              {hasPerson && <th>{personColTitle}</th>}
               <th>Description</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             <tr className="row-form">
-              <td>
+              <td data-label="Date">
                 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
               </td>
-              <td className="num">
+              <td className="num" data-label="Value">
                 <input
                   type="number"
                   step="0.01"
@@ -119,7 +136,7 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
                   style={{ width: 100, textAlign: "right" }}
                 />
               </td>
-              <td>
+              <td data-label="Category">
                 <select value={category} onChange={(e) => setCategory(e.target.value)}>
                   <option value="">— category —</option>
                   {categories.map((c) => (
@@ -128,7 +145,7 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
                 </select>
               </td>
               {isInvestment && (
-                <td>
+                <td data-label="Action">
                   <select
                     value={action}
                     onChange={(e) => setAction(e.target.value as InvestmentAction)}
@@ -139,8 +156,8 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
                   </select>
                 </td>
               )}
-              {(isExpense || isIncome) && (
-                <td>
+              {hasPerson && (
+                <td data-label={personColTitle}>
                   <select value={person} onChange={(e) => setPerson(e.target.value as Person)}>
                     {people.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
@@ -148,38 +165,39 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
                   </select>
                 </td>
               )}
-              <td>
+              <td data-label="Description">
                 <input
                   placeholder="optional"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </td>
-              <td>
+              <td className="row-form-actions">
                 <button className="primary" onClick={add} disabled={!online}>Add</button>
               </td>
             </tr>
 
             {rows?.map((r) => (
               <tr key={r.id}>
-                <td>{fmtDate(r.date)}</td>
+                <td data-label="Date">{fmtDate(r.date)}</td>
                 <td
                   className={
                     "num " + (isInvestment && r.action === "Withdraw" ? "neg" : "")
                   }
+                  data-label="Value"
                 >
                   {fmtMoney(r.value)}
                 </td>
-                <td>{r.category}</td>
+                <td data-label="Category">{r.category}</td>
                 {isInvestment && (
-                  <td><span className="pill">{r.action}</span></td>
+                  <td data-label="Action"><span className="pill">{r.action}</span></td>
                 )}
-                {(isExpense || isIncome) && (
-                  <td><span className="pill">{personLabel(r.paidBy ?? r.person)}</span></td>
+                {hasPerson && (
+                  <td data-label={personColTitle}><span className="pill">{personLabel(r.paidBy ?? r.person)}</span></td>
                 )}
-                <td>{r.description}</td>
+                <td data-label="Description">{r.description}</td>
                 <td>
-                  <button className="ghost danger" onClick={() => remove(r.id)} disabled={!online}>✕</button>
+                  <button className="ghost danger" onClick={() => remove(r)} disabled={!online}>✕</button>
                 </td>
               </tr>
             ))}

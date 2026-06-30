@@ -1,5 +1,6 @@
 import type {
-  Entry, ExpenseEntry, IncomeEntry, Investment, BillPayment, Recurrency, Person,
+  Entry, ExpenseEntry, IncomeEntry, Investment, BillPayment,
+  SettlementRecord, Recurrency, Person,
 } from "../db/types";
 
 // ---------------------------------------------------------------------------
@@ -153,10 +154,12 @@ export function netInvestmentByCategory(
 export interface OverviewData {
   income: CategoryTotal[];
   expenses: CategoryTotal[];
+  personal: CategoryTotal[];
   bills: CategoryTotal[];
   investments: CategoryTotal[];
   totalIncome: number;
   totalExpenses: number;
+  totalPersonal: number;
   totalBills: number;
   totalInvestments: number;
   totalSaved: number;
@@ -165,6 +168,8 @@ export interface OverviewData {
 export interface OverviewInputs {
   income: Entry[];
   expenses: Entry[];
+  /** Individual (personal) expenses — categorised with the expense list. */
+  personalExpenses: Entry[];
   billPayments: BillPayment[];
   investments: Investment[];
   incomeCategories: string[];
@@ -183,6 +188,7 @@ export function buildOverview(
 ): OverviewData {
   const income = sumByCategory(inp.income, inp.incomeCategories, start, end);
   const expenses = sumByCategory(inp.expenses, inp.expenseCategories, start, end);
+  const personal = sumByCategory(inp.personalExpenses, inp.expenseCategories, start, end);
   const bills = sumByCategory(inp.billPayments, inp.billCategories, start, end);
   const investments = netInvestmentByCategory(
     inp.investments,
@@ -193,20 +199,24 @@ export function buildOverview(
 
   const totalIncome = sum(income);
   const totalExpenses = sum(expenses);
+  const totalPersonal = sum(personal);
   const totalBills = sum(bills);
   const totalInvestments = sum(investments);
 
   return {
     income,
     expenses,
+    personal,
     bills,
     investments,
     totalIncome,
     totalExpenses,
+    totalPersonal,
     totalBills,
     totalInvestments,
-    // Total Saved = Income − (Expenses + Bills + Investments)   [Overview!D11]
-    totalSaved: totalIncome - (totalExpenses + totalBills + totalInvestments),
+    // Total Saved = Income − (Expenses + Individual + Bills + Investments)
+    totalSaved:
+      totalIncome - (totalExpenses + totalPersonal + totalBills + totalInvestments),
   };
 }
 
@@ -228,9 +238,14 @@ export interface Settlement {
   paidP2: number;
   fairP1: number;
   fairP2: number;
-  /** paidP1 − fairP1; >0 means P1 overpaid and is owed. (P2's is the mirror.) */
+  /** paidP1 − fairP1; >0 means P1 overpaid and is owed. (P2's is the mirror.)
+   *  This is the raw spending imbalance, *before* recorded settlements. */
   balanceP1: number;
-  /** Who pays whom to settle, and how much. null when already settled. */
+  /** Net amount P1 has already received via recorded settlements this period
+   *  (transfers to P1 − transfers from P1). */
+  settledNetP1: number;
+  /** Who still needs to pay whom, and how much, *after* recorded settlements.
+   *  null/0 when nothing is left to transfer. */
   from: Person | null;
   to: Person | null;
   amount: number;
@@ -240,6 +255,9 @@ export interface SettlementInputs {
   income: IncomeEntry[];
   expenses: ExpenseEntry[];
   billPayments: BillPayment[];
+  /** Already-recorded settlement transfers (all periods; filtered to the
+   *  window by exact [periodStart, periodEnd] match). */
+  settlements?: SettlementRecord[];
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -283,14 +301,23 @@ export function computeSettlement(
   const fairP2 = shareP2 * pool;
   const balanceP1 = paidP1 - fairP1;
 
+  // Subtract transfers already recorded for *this exact* window. A transfer to
+  // P1 reduces what P1 is still owed; a transfer from P1 increases it.
+  const settledNetP1 = (inp.settlements ?? [])
+    .filter((r) => r.periodStart === start && r.periodEnd === end)
+    .reduce(
+      (a, r) => a + (r.to === "P1" ? r.amount : 0) - (r.from === "P1" ? r.amount : 0),
+      0
+    );
+
   let from: Person | null = null;
   let to: Person | null = null;
   let amount = 0;
-  const owed = round2(balanceP1);
-  if (owed > 0) {
-    from = "P2"; to = "P1"; amount = owed; // P1 overpaid -> P2 reimburses P1
-  } else if (owed < 0) {
-    from = "P1"; to = "P2"; amount = -owed;
+  const remaining = round2(balanceP1 - settledNetP1);
+  if (remaining > 0) {
+    from = "P2"; to = "P1"; amount = remaining; // P1 still owed -> P2 reimburses P1
+  } else if (remaining < 0) {
+    from = "P1"; to = "P2"; amount = -remaining;
   }
 
   return {
@@ -299,7 +326,8 @@ export function computeSettlement(
     pool,
     paidP1, paidP2,
     fairP1: round2(fairP1), fairP2: round2(fairP2),
-    balanceP1: owed,
+    balanceP1: round2(balanceP1),
+    settledNetP1: round2(settledNetP1),
     from, to, amount,
   };
 }

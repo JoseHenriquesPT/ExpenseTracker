@@ -93,7 +93,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   padding: 16px;
 }
 
-.cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
 .card .label { color: var(--muted); font-size: 12px; }
 .card .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
@@ -112,8 +112,11 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .tag { display: inline-flex; gap: 6px; align-items: center; background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; }
 .tag button { padding: 0 4px; background: transparent; border: none; color: var(--muted); }
 
-.settle-result { font-size: 18px; padding: 10px 14px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; }
+.settle-result { font-size: 18px; padding: 10px 14px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .settle-result .amount { color: var(--accent); }
+.settle-result .subtitle { font-size: 13px; }
+.settle-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.settle-actions button { font-size: 14px; padding: 8px 14px; }
 .field-row { display: flex; gap: 16px; flex-wrap: wrap; }
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field label { color: var(--muted); font-size: 12px; }
@@ -164,4 +167,136 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(8, 10, 20, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: toast-in 0.15s ease-out;
+}
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  width: min(420px, 100%);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.modal-title { margin: 0 0 8px; font-size: 16px; }
+.modal-message { margin: 0 0 20px; color: var(--muted); line-height: 1.5; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.modal-actions button { padding: 9px 16px; }
+.modal-actions .danger { background: var(--red); border-color: var(--red); color: #fff; }
+.modal-actions .danger:hover { border-color: var(--red); filter: brightness(1.08); }
+
+/* ---- Mobile / narrow screens ---- */
+@media (max-width: 768px) {
+  /* Stack the layout: sidebar becomes a top bar instead of a 220px column. */
+  .app { flex-direction: column; min-height: 100dvh; }
+
+  .sidebar {
+    width: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 12px;
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 60;
+  }
+  .brand { order: 1; flex: 1 1 auto; margin: 0; font-size: 15px; }
+  .sidebar-foot { order: 2; margin-top: 0; }
+  /* Email would overflow the top row — drop it on mobile, keep Sign out. */
+  .sidebar-foot .subtitle { display: none; }
+
+  /* Nav drops to its own full-width row and scrolls horizontally. */
+  .sidebar nav {
+    order: 3;
+    flex: 1 1 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sidebar nav::-webkit-scrollbar { display: none; }
+  .nav { flex: 0 0 auto; white-space: nowrap; padding: 8px 12px; }
+
+  .content { padding: 16px 14px; overflow: visible; }
+  .offline-banner { position: static; }
+
+  /* Collapse the multi-column grids so cards/charts don't overlap. */
+  .cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .charts { grid-template-columns: 1fr; }
+
+  /* Wide tables scroll within their panel instead of crushing into columns. */
+  .panel { overflow-x: auto; }
+  table { min-width: 460px; }
+
+  /* Entry tables (ledgers + bills) become stacked cards so you can fill in
+     and read every field without scrolling sideways. */
+  .cards-on-mobile,
+  .cards-on-mobile tbody,
+  .cards-on-mobile tr,
+  .cards-on-mobile td { display: block; }
+  .cards-on-mobile { min-width: 0; }
+  .cards-on-mobile thead { display: none; }      /* per-cell labels replace the header row */
+
+  .cards-on-mobile tbody tr {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px 12px;
+    margin-bottom: 10px;
+  }
+  .cards-on-mobile tbody tr:hover { background: var(--panel-2); }
+
+  /* Highlight the "add new" form card. */
+  .cards-on-mobile tr.row-form { border-color: var(--accent); }
+
+  .cards-on-mobile td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+  .cards-on-mobile tr td:last-child { border-bottom: none; }
+
+  /* The data-label becomes the field label on the left of each row. */
+  .cards-on-mobile td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    text-align: left;
+  }
+
+  /* Inputs/selects fill the space next to their label. */
+  .cards-on-mobile .row-form input,
+  .cards-on-mobile .row-form select {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto !important;
+    text-align: left !important;
+  }
+
+  /* Add button gets its own full-width row for an easy tap target. */
+  .cards-on-mobile .row-form-actions { padding-top: 10px; }
+  .cards-on-mobile .row-form-actions button { width: 100%; padding: 11px; }
 }

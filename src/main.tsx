@@ -17,6 +17,7 @@ const router = createHashRouter([
     children: [
       { index: true, element: <Dashboard /> },
       { path: "expenses", element: <LedgerPage kind="expenses" /> },
+      { path: "personal", element: <LedgerPage kind="personalExpenses" /> },
       { path: "income", element: <LedgerPage kind="income" /> },
       { path: "investments", element: <LedgerPage kind="investments" /> },
       { path: "bills", element: <BillsPage /> },

@@ -30,6 +30,13 @@ export interface IncomeEntry extends Entry {
   person: Person;
 }
 
+/** Individual Expenses — personal spending attributed to one person.
+ *  Unlike Common Expenses these are NOT split, so they never enter the
+ *  settlement; they only reduce that person's "saved" on the Dashboard. */
+export interface PersonalExpenseEntry extends Entry {
+  person: Person;
+}
+
 /** Investments sheet — adds an Action (Invested / Withdraw). */
 export interface Investment extends Entry {
   action: InvestmentAction;
@@ -56,6 +63,19 @@ export interface BillPayment {
   category: string;
   scope: BillScope;
   paidBy: Person;
+}
+
+/** A recorded settlement transfer that balances a period's shared pool.
+ *  Tied to the exact date window it settles, so the Dashboard can subtract it
+ *  from that period's computed balance (and undo by deleting the row). */
+export interface SettlementRecord {
+  id?: number;
+  date: string;        // ISO date the settlement was recorded
+  periodStart: string; // ISO window start it settles (inclusive)
+  periodEnd: string;   // ISO window end it settles (inclusive)
+  from: Person;        // who paid
+  to: Person;          // who received
+  amount: number;
 }
 
 /** Data Config sheet — editable category & option master lists + person names. */

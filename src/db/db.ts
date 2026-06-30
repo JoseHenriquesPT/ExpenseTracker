@@ -2,7 +2,8 @@ import { supabase } from "./supabase";
 import { touch } from "./live";
 import { pushToast } from "../lib/toast";
 import type {
-  ExpenseEntry, IncomeEntry, Investment, Bill, BillPayment, Config,
+  ExpenseEntry, IncomeEntry, PersonalExpenseEntry, Investment,
+  Bill, BillPayment, SettlementRecord, Config,
 } from "./types";
 
 // Hosted storage: every table lives in Supabase Postgres, gated by Row-Level
@@ -16,9 +17,11 @@ import type {
 const TABLE = {
   expenses: "expenses",
   income: "income",
+  personalExpenses: "personal_expenses",
   investments: "investments",
   bills: "bills",
   billPayments: "bill_payments",
+  settlements: "settlements",
   config: "config",
 } as const;
 
@@ -153,9 +156,11 @@ export class SupaTable<T extends { id?: number }> {
 export const db = {
   expenses: new SupaTable<ExpenseEntry>(TABLE.expenses),
   income: new SupaTable<IncomeEntry>(TABLE.income),
+  personalExpenses: new SupaTable<PersonalExpenseEntry>(TABLE.personalExpenses),
   investments: new SupaTable<Investment>(TABLE.investments),
   bills: new SupaTable<Bill>(TABLE.bills),
   billPayments: new SupaTable<BillPayment>(TABLE.billPayments),
+  settlements: new SupaTable<SettlementRecord>(TABLE.settlements),
   config: new SupaTable<Config>(TABLE.config),
 };
 

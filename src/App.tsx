@@ -4,10 +4,12 @@ import { ensureConfig } from "./db/db";
 import { supabase } from "./db/supabase";
 import { useOnline } from "./lib/useOnline";
 import Toaster from "./components/Toaster";
+import ConfirmDialog from "./components/ConfirmDialog";
 
 const links = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/expenses", label: "Common Expenses" },
+  { to: "/personal", label: "Individual Expenses" },
   { to: "/income", label: "Income" },
   { to: "/investments", label: "Investments" },
   { to: "/bills", label: "Bills" },
@@ -56,6 +58,7 @@ export default function App() {
         <Outlet />
       </main>
       <Toaster />
+      <ConfirmDialog />
     </div>
   );
 }

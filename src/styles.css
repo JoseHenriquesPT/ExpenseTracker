@@ -70,6 +70,11 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button.danger { color: var(--red); }
 button.ghost { background: transparent; }
 input::placeholder { color: var(--muted); }
+button:disabled, input:disabled, select:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+button:disabled:hover { border-color: var(--border); }
 
 table { width: 100%; border-collapse: collapse; }
 th, td {
@@ -118,3 +123,45 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .segmented .seg + .seg { border-left: 1px solid var(--border); }
 .segmented .seg:hover { color: var(--text); }
 .segmented .seg.active { background: var(--accent); color: #fff; }
+
+.offline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--amber);
+  color: #1b1300;
+  font-weight: 600;
+  text-align: center;
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.toaster {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(360px, calc(100vw - 32px));
+}
+.toast {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  animation: toast-in 0.18s ease-out;
+}
+.toast.error { border-color: var(--red); border-left: 3px solid var(--red); }
+.toast.success { border-color: var(--green); border-left: 3px solid var(--green); }
+.toast.info { border-left: 3px solid var(--accent); }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

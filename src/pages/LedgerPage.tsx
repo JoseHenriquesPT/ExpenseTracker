@@ -6,6 +6,7 @@ import type {
 } from "../db/types";
 import { toISO } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
+import { useOnline } from "../lib/useOnline";
 
 type Kind = "expenses" | "income" | "investments";
 
@@ -24,6 +25,7 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
   const isInvestment = kind === "investments";
   const isExpense = kind === "expenses";
   const isIncome = kind === "income";
+  const online = useOnline();
 
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const rows = useLiveQuery(
@@ -154,7 +156,7 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
                 />
               </td>
               <td>
-                <button className="primary" onClick={add}>Add</button>
+                <button className="primary" onClick={add} disabled={!online}>Add</button>
               </td>
             </tr>
 
@@ -177,7 +179,7 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
                 )}
                 <td>{r.description}</td>
                 <td>
-                  <button className="ghost danger" onClick={() => remove(r.id)}>✕</button>
+                  <button className="ghost danger" onClick={() => remove(r.id)} disabled={!online}>✕</button>
                 </td>
               </tr>
             ))}

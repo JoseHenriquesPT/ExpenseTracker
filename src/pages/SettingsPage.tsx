@@ -3,6 +3,7 @@ import { useLiveQuery } from "../db/live";
 import { db, ensureConfig } from "../db/db";
 import type { Config } from "../db/types";
 import { exportBackup, importBackup } from "../lib/backup";
+import { useOnline } from "../lib/useOnline";
 
 type ListKey = Extract<
   keyof Config,
@@ -17,6 +18,7 @@ const LISTS: { key: ListKey; title: string }[] = [
 ];
 
 export default function SettingsPage() {
+  const online = useOnline();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState("");
@@ -67,6 +69,7 @@ export default function SettingsPage() {
             <input
               value={config.p1Name}
               onChange={(e) => renamePerson("p1Name", e.target.value)}
+              disabled={!online}
             />
           </div>
           <div className="field">
@@ -74,6 +77,7 @@ export default function SettingsPage() {
             <input
               value={config.p2Name}
               onChange={(e) => renamePerson("p2Name", e.target.value)}
+              disabled={!online}
             />
           </div>
         </div>
@@ -83,7 +87,7 @@ export default function SettingsPage() {
         <h3 style={{ marginTop: 0 }}>Backup</h3>
         <div className="toolbar" style={{ marginBottom: 0 }}>
           <button className="primary" onClick={() => exportBackup()}>Export JSON</button>
-          <button onClick={() => fileRef.current?.click()}>Import JSON</button>
+          <button onClick={() => fileRef.current?.click()} disabled={!online}>Import JSON</button>
           <input
             ref={fileRef}
             type="file"
@@ -104,6 +108,7 @@ export default function SettingsPage() {
             key={key}
             title={title}
             items={config[key]}
+            disabled={!online}
             onAdd={(v) => addCategory(key, v)}
             onRemove={(v) => removeCategory(key, v)}
           />
@@ -114,10 +119,11 @@ export default function SettingsPage() {
 }
 
 function CategoryEditor({
-  title, items, onAdd, onRemove,
+  title, items, disabled, onAdd, onRemove,
 }: {
   title: string;
   items: string[];
+  disabled?: boolean;
   onAdd: (v: string) => void;
   onRemove: (v: string) => void;
 }) {
@@ -129,7 +135,7 @@ function CategoryEditor({
         {items.map((c) => (
           <span key={c} className="tag">
             {c}
-            <button onClick={() => onRemove(c)} title="Remove">✕</button>
+            <button onClick={() => onRemove(c)} title="Remove" disabled={disabled}>✕</button>
           </span>
         ))}
         {items.length === 0 && <span className="subtitle">None yet.</span>}
@@ -138,12 +144,13 @@ function CategoryEditor({
         <input
           placeholder="New category"
           value={draft}
+          disabled={disabled}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") { onAdd(draft); setDraft(""); }
           }}
         />
-        <button onClick={() => { onAdd(draft); setDraft(""); }}>Add</button>
+        <button onClick={() => { onAdd(draft); setDraft(""); }} disabled={disabled}>Add</button>
       </div>
     </div>
   );

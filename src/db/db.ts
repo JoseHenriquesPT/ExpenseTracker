@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { touch } from "./live";
+import { pushToast } from "../lib/toast";
 import type {
   ExpenseEntry, IncomeEntry, Investment, Bill, BillPayment, Config,
 } from "./types";
@@ -25,6 +26,39 @@ const TABLE = {
 function stripId<T extends { id?: number }>(obj: T): Omit<T, "id"> {
   const { id: _omit, ...rest } = obj;
   return rest;
+}
+
+/** Fail fast on writes while offline, with a message the UI can show — instead
+ *  of a confusing network error or a button that silently does nothing. */
+export class OfflineError extends Error {
+  constructor() {
+    super("You're offline — reconnect to save changes.");
+    this.name = "OfflineError";
+  }
+}
+function assertOnline(): void {
+  if (typeof navigator !== "undefined" && !navigator.onLine) throw new OfflineError();
+}
+
+/** Turn any thrown write failure into a short, user-facing sentence. */
+function toMessage(e: unknown): string {
+  const msg = (e as { message?: string })?.message ?? String(e);
+  if (/failed to fetch|networkerror|load failed|fetch/i.test(msg)) {
+    return "Couldn't reach the server — your change wasn't saved.";
+  }
+  return msg;
+}
+
+/** Run a write: block when offline (banner handles that case), and on any other
+ *  failure raise an error toast so the user knows it didn't save, then rethrow. */
+async function guardWrite<R>(op: () => Promise<R>): Promise<R> {
+  assertOnline(); // OfflineError: surfaced by the offline banner, not a toast
+  try {
+    return await op();
+  } catch (e) {
+    pushToast(toMessage(e), "error");
+    throw e;
+  }
 }
 
 export class SupaTable<T extends { id?: number }> {
@@ -60,7 +94,8 @@ export class SupaTable<T extends { id?: number }> {
     return (data ?? undefined) as T | undefined;
   }
 
-  async add(obj: T): Promise<number> {
+  /** Raw insert of one row (no guard/toast) — shared by add() and put(). */
+  private async insertOne(obj: T): Promise<number> {
     const { data, error } = await supabase
       .from(this.table)
       .insert(stripId(obj) as never)
@@ -71,8 +106,13 @@ export class SupaTable<T extends { id?: number }> {
     return (data as { id: number }).id;
   }
 
+  async add(obj: T): Promise<number> {
+    return guardWrite(() => this.insertOne(obj));
+  }
+
   async put(obj: T): Promise<number> {
-    if (obj.id != null) {
+    return guardWrite(async () => {
+      if (obj.id == null) return this.insertOne(obj);
       const { error } = await supabase
         .from(this.table)
         .update(stripId(obj) as never)
@@ -80,28 +120,33 @@ export class SupaTable<T extends { id?: number }> {
       if (error) throw error;
       touch();
       return obj.id;
-    }
-    return this.add(obj);
+    });
   }
 
   async delete(id: number): Promise<void> {
-    const { error } = await supabase.from(this.table).delete().eq("id", id);
-    if (error) throw error;
-    touch();
+    return guardWrite(async () => {
+      const { error } = await supabase.from(this.table).delete().eq("id", id);
+      if (error) throw error;
+      touch();
+    });
   }
 
   /** Delete every row (used by backup restore). */
   async clear(): Promise<void> {
-    const { error } = await supabase.from(this.table).delete().neq("id", -1);
-    if (error) throw error;
-    touch();
+    return guardWrite(async () => {
+      const { error } = await supabase.from(this.table).delete().neq("id", -1);
+      if (error) throw error;
+      touch();
+    });
   }
 
   async bulkAdd(objs: T[]): Promise<void> {
     if (!objs.length) return;
-    const { error } = await supabase.from(this.table).insert(objs.map(stripId) as never);
-    if (error) throw error;
-    touch();
+    return guardWrite(async () => {
+      const { error } = await supabase.from(this.table).insert(objs.map(stripId) as never);
+      if (error) throw error;
+      touch();
+    });
   }
 }
 

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { ensureConfig } from "./db/db";
 import { supabase } from "./db/supabase";
+import { useOnline } from "./lib/useOnline";
+import Toaster from "./components/Toaster";
 
 const links = [
   { to: "/", label: "Dashboard", end: true },
@@ -14,6 +16,7 @@ const links = [
 
 export default function App() {
   const [email, setEmail] = useState("");
+  const online = useOnline();
 
   // Seed the config singleton on first launch.
   useEffect(() => {
@@ -45,8 +48,14 @@ export default function App() {
         </div>
       </aside>
       <main className="content">
+        {!online && (
+          <div className="offline-banner" role="status">
+            ⚠ You’re offline — viewing only. Changes can’t be saved until you reconnect.
+          </div>
+        )}
         <Outlet />
       </main>
+      <Toaster />
     </div>
   );
 }

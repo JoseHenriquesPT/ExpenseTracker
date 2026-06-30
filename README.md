@@ -5,6 +5,10 @@ Postgres**, gated by **Google sign-in** and a server-side email allowlist, so th
 same data is reachable from phone and desktop while staying private to the two of
 you. (Earlier versions were local-first/IndexedDB — that has been replaced.)
 
+Built with React + TypeScript + Vite (installable PWA) on a Supabase Postgres
+backend. For the full rundown of every technology, why it's here, and where it
+lives in the code, see **[TECH_STACK.md](TECH_STACK.md)**.
+
 ## Run it
 
 ```bash

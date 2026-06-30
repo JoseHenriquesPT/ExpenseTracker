@@ -4,10 +4,12 @@ import { db } from "../db/db";
 import type { Recurrency, BillStatus, BillScope, Person } from "../db/types";
 import { toISO, nextDueDate } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
+import { useOnline } from "../lib/useOnline";
 
 const SCOPES: BillScope[] = ["P1", "P2", "Common"];
 
 export default function BillsPage() {
+  const online = useOnline();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const bills = useLiveQuery(() => db.bills.orderBy("startDate").toArray(), []);
   const payments = useLiveQuery(
@@ -127,7 +129,7 @@ export default function BillsPage() {
               <td>
                 <input placeholder="optional" value={bDesc} onChange={(e) => setBDesc(e.target.value)} />
               </td>
-              <td><button className="primary" onClick={addBill}>Add</button></td>
+              <td><button className="primary" onClick={addBill} disabled={!online}>Add</button></td>
             </tr>
 
             {bills?.map((b) => (
@@ -141,8 +143,8 @@ export default function BillsPage() {
                 <td><span className="pill">{b.status}</span></td>
                 <td>{b.description}</td>
                 <td style={{ whiteSpace: "nowrap" }}>
-                  <button className="ghost" title="Register a payment today" onClick={() => payNow(b.value, b.category, b.scope)}>Pay</button>
-                  <button className="ghost danger" onClick={() => b.id != null && db.bills.delete(b.id)}>✕</button>
+                  <button className="ghost" title="Register a payment today" onClick={() => payNow(b.value, b.category, b.scope)} disabled={!online}>Pay</button>
+                  <button className="ghost danger" onClick={() => b.id != null && db.bills.delete(b.id)} disabled={!online}>✕</button>
                 </td>
               </tr>
             ))}
@@ -199,7 +201,7 @@ export default function BillsPage() {
                   <span className="pill">{scopeLabel(pScope)}</span>
                 )}
               </td>
-              <td><button className="primary" onClick={addPayment}>Add</button></td>
+              <td><button className="primary" onClick={addPayment} disabled={!online}>Add</button></td>
             </tr>
             {payments?.map((p) => (
               <tr key={p.id}>
@@ -208,7 +210,7 @@ export default function BillsPage() {
                 <td>{p.category}</td>
                 <td><span className="pill">{scopeLabel(p.scope)}</span></td>
                 <td><span className="pill">{personLabel(p.paidBy)}</span></td>
-                <td><button className="ghost danger" onClick={() => p.id != null && db.billPayments.delete(p.id)}>✕</button></td>
+                <td><button className="ghost danger" onClick={() => p.id != null && db.billPayments.delete(p.id)} disabled={!online}>✕</button></td>
               </tr>
             ))}
           </tbody>

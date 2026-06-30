@@ -163,44 +163,6 @@
   ],
   "bills": [
     {
-      "startDate": "2026-06-01",
-      "recurrency": "Monthly",
-      "value": 10,
-      "category": "Streaming",
-      "status": "Active",
-      "scope": "Common",
-      "description": "Streaming subscription"
-    },
-    {
-      "startDate": "2026-06-01",
-      "recurrency": "Weekly",
-      "value": 14,
-      "category": "Musica",
-      "status": "Active",
-      "scope": "P1",
-      "description": "Musica subscription"
-    },
-    {
-      "startDate": "2026-06-01",
-      "recurrency": "Yearly",
-      "value": 18,
-      "category": "Ginásio",
-      "status": "Stopped",
-      "scope": "P2",
-      "description": "Ginásio subscription"
-    },
-    {
-      "startDate": "2026-06-01",
-      "recurrency": "Monthly",
-      "value": 22,
-      "category": "Tarifário",
-      "status": "Canceled",
-      "scope": "Common",
-      "description": "Tarifário subscription"
-    }
-  ],
-  "billPayments": [
-    {
       "date": "2026-06-08",
       "value": 10,
       "category": "Streaming",
@@ -265,16 +227,6 @@
       "actions": [
         "Invested",
         "Withdraw"
-      ],
-      "recurrencies": [
-        "Weekly",
-        "Monthly",
-        "Yearly"
-      ],
-      "statuses": [
-        "Active",
-        "Stopped",
-        "Canceled"
       ]
     }
   ]

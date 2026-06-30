@@ -3,7 +3,7 @@ import { touch } from "./live";
 import { pushToast } from "../lib/toast";
 import type {
   ExpenseEntry, IncomeEntry, PersonalExpenseEntry, Investment,
-  Bill, BillPayment, SettlementRecord, Config,
+  Bill, SettlementRecord, Config,
 } from "./types";
 
 // Hosted storage: every table lives in Supabase Postgres, gated by Row-Level
@@ -20,7 +20,6 @@ const TABLE = {
   personalExpenses: "personal_expenses",
   investments: "investments",
   bills: "bills",
-  billPayments: "bill_payments",
   settlements: "settlements",
   config: "config",
 } as const;
@@ -159,7 +158,6 @@ export const db = {
   personalExpenses: new SupaTable<PersonalExpenseEntry>(TABLE.personalExpenses),
   investments: new SupaTable<Investment>(TABLE.investments),
   bills: new SupaTable<Bill>(TABLE.bills),
-  billPayments: new SupaTable<BillPayment>(TABLE.billPayments),
   settlements: new SupaTable<SettlementRecord>(TABLE.settlements),
   config: new SupaTable<Config>(TABLE.config),
 };
@@ -185,8 +183,6 @@ export const DEFAULT_CONFIG: Omit<Config, "id"> = {
   billCategories: ["Streaming", "Musica", "Ginásio", "Tarifário"],
   investmentCategories: ["Trading 212"],
   actions: ["Invested", "Withdraw"],
-  recurrencies: ["Weekly", "Monthly", "Yearly"],
-  statuses: ["Active", "Stopped", "Canceled"],
 };
 
 /** Ensure the singleton config row exists; returns it. Safe under a race:

@@ -33,8 +33,9 @@ reachable from any device, private to two people, and cheap/simple to host.
 
 ### TypeScript
 Strict mode is on ([tsconfig.json](tsconfig.json)). The domain model in
-[src/db/types.ts](src/db/types.ts) (`ExpenseEntry`, `IncomeEntry`, `Investment`,
-`Bill`, `BillPayment`, `Config`) is the single source of truth: the same shapes
+[src/db/types.ts](src/db/types.ts) (`ExpenseEntry`, `IncomeEntry`,
+`PersonalExpenseEntry`, `Investment`, `Bill`, `SettlementRecord`, `Config`) is the
+single source of truth: the same shapes
 flow through the React pages, the data-access layer, and even drive the column
 names in the SQL schema (`supabase/migrations/0001_init.sql` uses quoted
 camelCase to match the interfaces exactly, so no field remapping is needed).
@@ -138,11 +139,10 @@ The realtime publication is enabled for all tables in the migration SQL.
 
 [src/lib/finance.ts](src/lib/finance.ts) holds the only real business logic,
 ported from the original Excel formulas:
-- **`nextDueDate`** — next Weekly/Monthly/Yearly bill occurrence ≥ today.
-- **`buildOverview`** — windowed sum-by-category for each stream (income,
-  expenses, bills, net investments) plus total saved.
+- **`buildOverview`** — windowed sum-by-category for each stream (income, common
+  expenses, individual expenses, bills, net investments) plus total saved.
 - **`computeSettlement`** — income-proportional fair-share split that resolves
-  who owes whom in a single transfer.
+  who owes whom in a single transfer, net of any recorded settlements.
 
 [src/lib/format.ts](src/lib/format.ts) handles display formatting and
 [src/lib/backup.ts](src/lib/backup.ts) does JSON export/import (dump every table /

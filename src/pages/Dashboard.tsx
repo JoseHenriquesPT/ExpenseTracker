@@ -39,11 +39,11 @@ export default function Dashboard() {
   const expenses = useLiveQuery(() => db.expenses.toArray(), []);
   const personal = useLiveQuery(() => db.personalExpenses.toArray(), []);
   const investments = useLiveQuery(() => db.investments.toArray(), []);
-  const billPayments = useLiveQuery(() => db.billPayments.toArray(), []);
+  const bills = useLiveQuery(() => db.bills.toArray(), []);
   const settlements = useLiveQuery(() => db.settlements.toArray(), []);
 
   const ready =
-    config && income && expenses && personal && investments && billPayments && settlements;
+    config && income && expenses && personal && investments && bills && settlements;
 
   const [start, end] = useMemo(
     () =>
@@ -60,11 +60,11 @@ export default function Dashboard() {
     const fIncome = who === "Both" ? income : income.filter((r) => r.person === who);
     const fExpenses = who === "Both" ? expenses : expenses.filter((r) => r.paidBy === who);
     const fPersonal = who === "Both" ? personal : personal.filter((r) => r.person === who);
-    const fBills = who === "Both" ? billPayments : billPayments.filter((r) => r.paidBy === who);
+    const fBills = who === "Both" ? bills : bills.filter((r) => r.paidBy === who);
     return buildOverview(
       {
         income: fIncome, expenses: fExpenses, personalExpenses: fPersonal,
-        billPayments: fBills, investments,
+        bills: fBills, investments,
         incomeCategories: config.incomeCategories,
         expenseCategories: config.expenseCategories,
         billCategories: config.billCategories,
@@ -72,12 +72,12 @@ export default function Dashboard() {
       },
       start, end
     );
-  }, [ready, who, start, end, config, income, expenses, personal, investments, billPayments]);
+  }, [ready, who, start, end, config, income, expenses, personal, investments, bills]);
 
   const settlement = useMemo(() => {
     if (!ready) return null;
-    return computeSettlement({ income, expenses, billPayments, settlements }, start, end);
-  }, [ready, start, end, income, expenses, billPayments, settlements]);
+    return computeSettlement({ income, expenses, bills, settlements }, start, end);
+  }, [ready, start, end, income, expenses, bills, settlements]);
 
   const years = useMemo(() => {
     const base = now.getFullYear();
@@ -96,6 +96,26 @@ export default function Dashboard() {
     { name: "Bills", value: overview.totalBills },
     { name: "Investments", value: overview.totalInvestments },
     { name: "Saved", value: overview.totalSaved },
+  ];
+
+  // All money spent, merged by category across every spending source
+  // (common expenses + individual expenses + bills). Same category name from
+  // different sources collapses into a single slice.
+  const spendingByCategory: CategoryTotal[] = (() => {
+    const m = new Map<string, number>();
+    for (const ct of [...overview.expenses, ...overview.personal, ...overview.bills]) {
+      m.set(ct.category, (m.get(ct.category) ?? 0) + ct.value);
+    }
+    return [...m].map(([category, value]) => ({ category, value }));
+  })();
+
+  // Where the income went: each outflow bucket plus what's left as savings.
+  const moneyDistribution: CategoryTotal[] = [
+    { category: "Common Expenses", value: overview.totalExpenses },
+    { category: "Individual Expenses", value: overview.totalPersonal },
+    { category: "Bills", value: overview.totalBills },
+    { category: "Investments", value: overview.totalInvestments },
+    { category: "Saved", value: overview.totalSaved },
   ];
 
   return (
@@ -167,6 +187,8 @@ export default function Dashboard() {
         <PieCard title="Individual expenses by category" data={overview.personal} />
         <PieCard title="Bills by category" data={overview.bills} />
         <PieCard title="Investments by category" data={overview.investments} />
+        <PieCard title="Total spending by category" data={spendingByCategory} />
+        <PieCard title="Total money distribution" data={moneyDistribution} />
       </div>
 
       <div className="chart-card panel" style={{ marginTop: 16 }}>

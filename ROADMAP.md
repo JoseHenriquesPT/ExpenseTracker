@@ -1,0 +1,1 @@
+expand investments tab to register investment with price bought

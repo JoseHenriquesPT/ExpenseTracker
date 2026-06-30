@@ -10,7 +10,6 @@ export async function exportBackup(): Promise<void> {
     personalExpenses: await db.personalExpenses.toArray(),
     investments: await db.investments.toArray(),
     bills: await db.bills.toArray(),
-    billPayments: await db.billPayments.toArray(),
     settlements: await db.settlements.toArray(),
     config: await db.config.toArray(),
   };
@@ -38,7 +37,6 @@ export async function importBackup(file: File): Promise<void> {
     db.personalExpenses.clear(),
     db.investments.clear(),
     db.bills.clear(),
-    db.billPayments.clear(),
     db.settlements.clear(),
     db.config.clear(),
   ]);
@@ -47,7 +45,6 @@ export async function importBackup(file: File): Promise<void> {
   if (data.personalExpenses?.length) await db.personalExpenses.bulkAdd(data.personalExpenses);
   if (data.investments?.length) await db.investments.bulkAdd(data.investments);
   if (data.bills?.length) await db.bills.bulkAdd(data.bills);
-  if (data.billPayments?.length) await db.billPayments.bulkAdd(data.billPayments);
   if (data.settlements?.length) await db.settlements.bulkAdd(data.settlements);
   if (data.config?.length) await db.config.bulkAdd(data.config);
 }

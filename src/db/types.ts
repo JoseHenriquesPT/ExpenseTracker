@@ -2,8 +2,6 @@
 // Dates are stored as ISO "YYYY-MM-DD" strings so they sort lexicographically
 // and compare cleanly against month/year windows.
 
-export type Recurrency = "Weekly" | "Monthly" | "Yearly";
-export type BillStatus = "Active" | "Stopped" | "Canceled";
 export type InvestmentAction = "Invested" | "Withdraw";
 
 /** The two people the tracker distinguishes between. */
@@ -42,25 +40,10 @@ export interface Investment extends Entry {
   action: InvestmentAction;
 }
 
-/** Bills sheet — a recurring-bill *definition* (schedule, not a payment). */
-export interface Bill {
-  id?: number;
-  startDate: string;
-  recurrency: Recurrency;
-  value: number;
-  category: string;
-  status: BillStatus;
-  scope: BillScope;
-  description?: string;
-}
-
-/** Bills Regist sheet — a *paid* bill instance (added manually).
- *  `scope` = whose responsibility; `paidBy` = who actually fronted it. */
-export interface BillPayment {
-  id?: number;
-  date: string;
-  value: number;
-  category: string;
+/** Bills — a paid bill. Registering one is assumed to mean it was paid, so a
+ *  bill is just a dated money row plus who's responsible (`scope`) and who
+ *  actually fronted it (`paidBy`). Common-scoped bills feed the settlement. */
+export interface Bill extends Entry {
   scope: BillScope;
   paidBy: Person;
 }
@@ -89,6 +72,4 @@ export interface Config {
   billCategories: string[];
   investmentCategories: string[];
   actions: InvestmentAction[];
-  recurrencies: Recurrency[];
-  statuses: BillStatus[];
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLiveQuery } from "../db/live";
 import { db, type SupaTable } from "../db/db";
 import type {
@@ -8,6 +8,7 @@ import { toISO } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
+import PeriodFilter, { usePeriodFilter } from "../components/PeriodFilter";
 
 type Kind = "expenses" | "income" | "investments" | "personalExpenses";
 
@@ -16,6 +17,13 @@ const TITLES: Record<Kind, string> = {
   income: "Income",
   investments: "Investments",
   personalExpenses: "Individual Expenses",
+};
+
+const NOTES: Record<Kind, string> = {
+  expenses: "Shared cost — settled monthly on the Dashboard.",
+  income: "Attributed to a person — sets their settlement share.",
+  investments: "Invested and withdrawn amounts; net shown below.",
+  personalExpenses: "Personal spending — not shared, not settled.",
 };
 
 type Row = Entry &
@@ -88,7 +96,16 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
     if (ok) await db[kind].delete(r.id);
   }
 
-  const total = (rows ?? []).reduce(
+  // The registered-entries list filters by period, just like the Dashboard.
+  const filter = usePeriodFilter();
+  const filtered = useMemo(() => {
+    const all = rows ?? [];
+    if (!filter.window) return all;
+    const [start, end] = filter.window;
+    return all.filter((r) => r.date >= start && r.date <= end);
+  }, [rows, filter.window]);
+
+  const total = filtered.reduce(
     (acc, r) =>
       acc + (isInvestment && r.action === "Withdraw" ? -r.value : r.value),
     0
@@ -98,29 +115,31 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
   const hasPerson = isExpense || isIncome || isPersonal;
   const personColTitle = isExpense ? "Paid by" : "Person";
 
+  // Column headers — shared by the "Add" form table and the list table.
+  const head = (
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th className="num">Value</th>
+        <th>Category</th>
+        {isInvestment && <th>Action</th>}
+        {hasPerson && <th>{personColTitle}</th>}
+        <th>Description</th>
+        <th></th>
+      </tr>
+    </thead>
+  );
+
   return (
     <div>
       <h2>{TITLES[kind]}</h2>
-      <p className="subtitle">
-        {isInvestment ? "Net" : "Total"} recorded:{" "}
-        <strong>{fmtMoney(total)}</strong> · {rows?.length ?? 0} entries
-        {isExpense && " · shared cost, settled monthly on the Dashboard"}
-        {isPersonal && " · personal — not shared, not settled"}
-      </p>
+      <p className="subtitle">{NOTES[kind]}</p>
 
-      <div className="panel">
+      {/* ---------------- Add a new entry ---------------- */}
+      <div className="panel" style={{ marginBottom: 24 }}>
+        <h3 style={{ marginTop: 0 }}>Add {isInvestment ? "investment" : "entry"}</h3>
         <table className="cards-on-mobile">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th className="num">Value</th>
-              <th>Category</th>
-              {isInvestment && <th>Action</th>}
-              {hasPerson && <th>{personColTitle}</th>}
-              <th>Description</th>
-              <th></th>
-            </tr>
-          </thead>
+          {head}
           <tbody>
             <tr className="row-form">
               <td data-label="Date">
@@ -176,8 +195,22 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
                 <button className="primary" onClick={add} disabled={!online}>Add</button>
               </td>
             </tr>
+          </tbody>
+        </table>
+      </div>
 
-            {rows?.map((r) => (
+      {/* ---------------- Registered entries (filterable) ---------------- */}
+      <div className="panel">
+        <h3 style={{ marginTop: 0 }}>Registered entries</h3>
+        <PeriodFilter state={filter} />
+        <p className="subtitle">
+          {isInvestment ? "Net" : "Total"} for this period:{" "}
+          <strong>{fmtMoney(total)}</strong> · {filtered.length} entries
+        </p>
+        <table className="cards-on-mobile">
+          {head}
+          <tbody>
+            {filtered.map((r) => (
               <tr key={r.id}>
                 <td data-label="Date">{fmtDate(r.date)}</td>
                 <td
@@ -203,7 +236,13 @@ export default function LedgerPage({ kind }: { kind: Kind }) {
             ))}
           </tbody>
         </table>
-        {rows?.length === 0 && <div className="empty">No entries yet — add one above.</div>}
+        {filtered.length === 0 && (
+          <div className="empty">
+            {rows?.length === 0
+              ? "No entries yet — add one above."
+              : "No entries for this period."}
+          </div>
+        )}
       </div>
     </div>
   );

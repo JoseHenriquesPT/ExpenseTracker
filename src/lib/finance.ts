@@ -1,6 +1,6 @@
 import type {
-  Entry, ExpenseEntry, IncomeEntry, Investment, BillPayment,
-  SettlementRecord, Recurrency, Person,
+  Entry, ExpenseEntry, IncomeEntry, Investment, Bill,
+  SettlementRecord, Person,
 } from "../db/types";
 
 // ---------------------------------------------------------------------------
@@ -12,11 +12,6 @@ export function toISO(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-
-export function parseISO(s: string): Date {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d);
 }
 
 /** First day of a given year/month (month is 1-12). */
@@ -34,74 +29,6 @@ export function yearStart(year: number): string {
 }
 export function yearEnd(year: number): string {
   return toISO(new Date(year, 11, 31));
-}
-
-// ---------------------------------------------------------------------------
-// Next due date — port of the Bills!D LET/IFS formula (analysis §4)
-// ---------------------------------------------------------------------------
-
-/** Add `n` whole months to a date, clamping the day to the month's length
- *  (mirrors Excel EDATE semantics). */
-function addMonths(date: Date, n: number): Date {
-  const d = new Date(date.getFullYear(), date.getMonth() + n, 1);
-  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-  d.setDate(Math.min(date.getDate(), lastDay));
-  return d;
-}
-
-/** Add `n` whole calendar days, DST-safe (new Date normalizes the day field). */
-function addDays(date: Date, n: number): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + n);
-}
-
-/** Whole calendar-day difference b − a, DST-safe (compares UTC of y/m/d only). */
-function daysBetween(a: Date, b: Date): number {
-  const ua = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
-  const ub = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
-  return Math.round((ub - ua) / 86_400_000);
-}
-
-/**
- * Next occurrence >= today for a recurring bill.
- * Returns ISO date string, or "" if inputs are incomplete.
- *
- * Note: improves on the original spreadsheet, which for a *future* start date
- * could return a Monthly/Yearly due date earlier than the start. Here the first
- * occurrence of a not-yet-started bill is simply its start date.
- */
-export function nextDueDate(
-  startISO: string,
-  recurrency: Recurrency,
-  today: Date = new Date()
-): string {
-  if (!startISO || !recurrency) return "";
-  const start = parseISO(startISO);
-  const hoje = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-  // A bill that hasn't started yet: first occurrence is the start date itself.
-  if (start > hoje) return toISO(start);
-
-  if (recurrency === "Weekly") {
-    const weeks = Math.ceil(Math.max(0, daysBetween(start, hoje)) / 7);
-    let prox = addDays(start, weeks * 7);
-    if (prox < hoje) prox = addDays(prox, 7);
-    return toISO(prox);
-  }
-
-  if (recurrency === "Monthly") {
-    const months =
-      (hoje.getFullYear() - start.getFullYear()) * 12 +
-      (hoje.getMonth() - start.getMonth());
-    let prox = addMonths(start, months);
-    if (prox < hoje) prox = addMonths(start, months + 1);
-    return toISO(prox);
-  }
-
-  // Yearly
-  const years = hoje.getFullYear() - start.getFullYear();
-  let prox = addMonths(start, years * 12);
-  if (prox < hoje) prox = addMonths(prox, 12);
-  return toISO(prox);
 }
 
 // ---------------------------------------------------------------------------
@@ -170,7 +97,7 @@ export interface OverviewInputs {
   expenses: Entry[];
   /** Individual (personal) expenses — categorised with the expense list. */
   personalExpenses: Entry[];
-  billPayments: BillPayment[];
+  bills: Bill[];
   investments: Investment[];
   incomeCategories: string[];
   expenseCategories: string[];
@@ -189,7 +116,7 @@ export function buildOverview(
   const income = sumByCategory(inp.income, inp.incomeCategories, start, end);
   const expenses = sumByCategory(inp.expenses, inp.expenseCategories, start, end);
   const personal = sumByCategory(inp.personalExpenses, inp.expenseCategories, start, end);
-  const bills = sumByCategory(inp.billPayments, inp.billCategories, start, end);
+  const bills = sumByCategory(inp.bills, inp.billCategories, start, end);
   const investments = netInvestmentByCategory(
     inp.investments,
     inp.investmentCategories,
@@ -254,7 +181,7 @@ export interface Settlement {
 export interface SettlementInputs {
   income: IncomeEntry[];
   expenses: ExpenseEntry[];
-  billPayments: BillPayment[];
+  bills: Bill[];
   /** Already-recorded settlement transfers (all periods; filtered to the
    *  window by exact [periodStart, periodEnd] match). */
   settlements?: SettlementRecord[];
@@ -286,8 +213,8 @@ export function computeSettlement(
   // Out-of-pocket on shared items, per person.
   const expPaidP1 = sumBy(inp.expenses, (r) => r.paidBy === "P1");
   const expPaidP2 = sumBy(inp.expenses, (r) => r.paidBy === "P2");
-  const billPaidP1 = sumBy(inp.billPayments, (r) => r.scope === "Common" && r.paidBy === "P1");
-  const billPaidP2 = sumBy(inp.billPayments, (r) => r.scope === "Common" && r.paidBy === "P2");
+  const billPaidP1 = sumBy(inp.bills, (r) => r.scope === "Common" && r.paidBy === "P1");
+  const billPaidP2 = sumBy(inp.bills, (r) => r.scope === "Common" && r.paidBy === "P2");
 
   const paidP1 = expPaidP1 + billPaidP1;
   const paidP2 = expPaidP2 + billPaidP2;

@@ -1,0 +1,281 @@
+{
+  "version": 1,
+  "exportedAt": "2026-06-30T18:05:04.986Z",
+  "expenses": [
+    {
+      "date": "2026-06-03",
+      "value": 20,
+      "category": "Comida",
+      "paidBy": "P1",
+      "description": "Comida test"
+    },
+    {
+      "date": "2026-06-04",
+      "value": 25,
+      "category": "Compras",
+      "paidBy": "P2",
+      "description": "Compras test"
+    },
+    {
+      "date": "2026-06-05",
+      "value": 30,
+      "category": "Combustível",
+      "paidBy": "P1",
+      "description": "Combustível test"
+    },
+    {
+      "date": "2026-06-06",
+      "value": 35,
+      "category": "Restaurante",
+      "paidBy": "P2",
+      "description": "Restaurante test"
+    },
+    {
+      "date": "2026-06-07",
+      "value": 40,
+      "category": "Bebidas",
+      "paidBy": "P1",
+      "description": "Bebidas test"
+    },
+    {
+      "date": "2026-06-08",
+      "value": 45,
+      "category": "Divertimento",
+      "paidBy": "P2",
+      "description": "Divertimento test"
+    },
+    {
+      "date": "2026-06-09",
+      "value": 50,
+      "category": "Roupa",
+      "paidBy": "P1",
+      "description": "Roupa test"
+    },
+    {
+      "date": "2026-06-10",
+      "value": 55,
+      "category": "Calçado",
+      "paidBy": "P2",
+      "description": "Calçado test"
+    },
+    {
+      "date": "2026-06-11",
+      "value": 60,
+      "category": "Acessórios",
+      "paidBy": "P1",
+      "description": "Acessórios test"
+    },
+    {
+      "date": "2026-06-12",
+      "value": 65,
+      "category": "Retoma",
+      "paidBy": "P2",
+      "description": "Retoma test"
+    }
+  ],
+  "income": [
+    {
+      "date": "2026-06-02",
+      "value": 1000,
+      "category": "Emprego",
+      "person": "P1",
+      "description": "Emprego (Jun)"
+    },
+    {
+      "date": "2026-05-02",
+      "value": 900,
+      "category": "Emprego",
+      "person": "P1",
+      "description": "Emprego (May)"
+    },
+    {
+      "date": "2026-06-03",
+      "value": 950,
+      "category": "Sub. Refeição",
+      "person": "P2",
+      "description": "Sub. Refeição (Jun)"
+    },
+    {
+      "date": "2026-05-03",
+      "value": 850,
+      "category": "Sub. Refeição",
+      "person": "P2",
+      "description": "Sub. Refeição (May)"
+    },
+    {
+      "date": "2026-06-04",
+      "value": 900,
+      "category": "Side Hustle",
+      "person": "P1",
+      "description": "Side Hustle (Jun)"
+    },
+    {
+      "date": "2026-05-04",
+      "value": 800,
+      "category": "Side Hustle",
+      "person": "P1",
+      "description": "Side Hustle (May)"
+    },
+    {
+      "date": "2026-06-05",
+      "value": 850,
+      "category": "Venda",
+      "person": "P2",
+      "description": "Venda (Jun)"
+    },
+    {
+      "date": "2026-05-05",
+      "value": 750,
+      "category": "Venda",
+      "person": "P2",
+      "description": "Venda (May)"
+    },
+    {
+      "date": "2026-06-06",
+      "value": 800,
+      "category": "Prémio",
+      "person": "P1",
+      "description": "Prémio (Jun)"
+    },
+    {
+      "date": "2026-05-06",
+      "value": 700,
+      "category": "Prémio",
+      "person": "P1",
+      "description": "Prémio (May)"
+    }
+  ],
+  "investments": [
+    {
+      "date": "2026-06-06",
+      "value": 500,
+      "category": "Trading 212",
+      "action": "Invested",
+      "description": "Monthly buy"
+    },
+    {
+      "date": "2026-06-20",
+      "value": 120,
+      "category": "Trading 212",
+      "action": "Withdraw",
+      "description": "Partial sell"
+    }
+  ],
+  "bills": [
+    {
+      "startDate": "2026-06-01",
+      "recurrency": "Monthly",
+      "value": 10,
+      "category": "Streaming",
+      "status": "Active",
+      "scope": "Common",
+      "description": "Streaming subscription"
+    },
+    {
+      "startDate": "2026-06-01",
+      "recurrency": "Weekly",
+      "value": 14,
+      "category": "Musica",
+      "status": "Active",
+      "scope": "P1",
+      "description": "Musica subscription"
+    },
+    {
+      "startDate": "2026-06-01",
+      "recurrency": "Yearly",
+      "value": 18,
+      "category": "Ginásio",
+      "status": "Stopped",
+      "scope": "P2",
+      "description": "Ginásio subscription"
+    },
+    {
+      "startDate": "2026-06-01",
+      "recurrency": "Monthly",
+      "value": 22,
+      "category": "Tarifário",
+      "status": "Canceled",
+      "scope": "Common",
+      "description": "Tarifário subscription"
+    }
+  ],
+  "billPayments": [
+    {
+      "date": "2026-06-08",
+      "value": 10,
+      "category": "Streaming",
+      "scope": "Common",
+      "paidBy": "P1"
+    },
+    {
+      "date": "2026-06-09",
+      "value": 14,
+      "category": "Musica",
+      "scope": "P1",
+      "paidBy": "P2"
+    },
+    {
+      "date": "2026-06-10",
+      "value": 18,
+      "category": "Ginásio",
+      "scope": "P2",
+      "paidBy": "P1"
+    },
+    {
+      "date": "2026-06-11",
+      "value": 22,
+      "category": "Tarifário",
+      "scope": "Common",
+      "paidBy": "P2"
+    }
+  ],
+  "config": [
+    {
+      "key": "config",
+      "p1Name": "Person 1",
+      "p2Name": "Person 2",
+      "incomeCategories": [
+        "Emprego",
+        "Sub. Refeição",
+        "Side Hustle",
+        "Venda",
+        "Prémio"
+      ],
+      "expenseCategories": [
+        "Comida",
+        "Compras",
+        "Combustível",
+        "Restaurante",
+        "Bebidas",
+        "Divertimento",
+        "Roupa",
+        "Calçado",
+        "Acessórios",
+        "Retoma"
+      ],
+      "billCategories": [
+        "Streaming",
+        "Musica",
+        "Ginásio",
+        "Tarifário"
+      ],
+      "investmentCategories": [
+        "Trading 212"
+      ],
+      "actions": [
+        "Invested",
+        "Withdraw"
+      ],
+      "recurrencies": [
+        "Weekly",
+        "Monthly",
+        "Yearly"
+      ],
+      "statuses": [
+        "Active",
+        "Stopped",
+        "Canceled"
+      ]
+    }
+  ]
+}

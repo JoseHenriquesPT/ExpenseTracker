@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "../db/live";
 import { db, ensureConfig } from "../db/db";
+import { supabase } from "../db/supabase";
 import type { Config } from "../db/types";
 import { exportBackup, importBackup } from "../lib/backup";
 import { useOnline } from "../lib/useOnline";
@@ -14,7 +15,7 @@ const LISTS: { key: ListKey; title: string }[] = [
   { key: "incomeCategories", title: "Income categories" },
   { key: "expenseCategories", title: "Expense categories" },
   { key: "billCategories", title: "Bill categories" },
-  { key: "investmentCategories", title: "Investment categories" },
+  { key: "investmentCategories", title: "Investment names" },
 ];
 
 export default function SettingsPage() {
@@ -22,6 +23,10 @@ export default function SettingsPage() {
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState("");
+  const [email, setEmail] = useState("");
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ""));
+  }, []);
 
   // Person names are edited locally and committed with the Save button — typing
   // no longer fires a DB write per keystroke. Seed from config, and re-sync when
@@ -76,6 +81,20 @@ export default function SettingsPage() {
     <div>
       <h2>Settings</h2>
       <p className="subtitle">Edit people, categories and back up your data.</p>
+
+      <div className="panel" style={{ marginBottom: 24 }}>
+        <h3 style={{ marginTop: 0 }}>Account</h3>
+        <div className="toolbar" style={{ marginBottom: 0 }}>
+          {email && <span className="subtitle" style={{ margin: 0 }}>{email}</span>}
+          <button
+            className="ghost"
+            style={{ marginLeft: "auto" }}
+            onClick={() => supabase.auth.signOut()}
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
 
       <div className="panel" style={{ marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>People</h3>

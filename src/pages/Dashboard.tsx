@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Legend, CartesianGrid,
 } from "recharts";
 import { db } from "../db/db";
-import type { Person, SettlementRecord } from "../db/types";
+import type { Scope, Person, SettlementRecord } from "../db/types";
 import {
   buildOverview, computeSettlement, monthStart, monthEnd, yearStart, yearEnd,
   toISO, type CategoryTotal, type Settlement,
@@ -55,16 +55,24 @@ export default function Dashboard() {
 
   const overview = useMemo(() => {
     if (!ready) return null;
-    // Person filter: income by person, expenses/bills by who actually paid.
-    // Investments carry no person attribution, so they show in full in every view.
-    const fIncome = who === "Both" ? income : income.filter((r) => r.person === who);
-    const fExpenses = who === "Both" ? expenses : expenses.filter((r) => r.paidBy === who);
-    const fPersonal = who === "Both" ? personal : personal.filter((r) => r.person === who);
-    const fBills = who === "Both" ? bills : bills.filter((r) => r.paidBy === who);
+    // "Both" is the shared/common household view; each person's tab shows only
+    // that person's individual items. So:
+    //   - income is filtered to the person on their tab,
+    //   - common expenses only appear on Both; individual expenses only on tabs,
+    //   - bills AND investments are split by SCOPE (Common on Both, that
+    //     person's own on their tab) — bills not by who fronted them — so
+    //     common items never leak into an individual tab.
+    const isBoth = who === "Both";
+    const scope: Scope = isBoth ? "Common" : who;
+    const fIncome = isBoth ? income : income.filter((r) => r.person === who);
+    const fExpenses = isBoth ? expenses : [];
+    const fPersonal = isBoth ? [] : personal.filter((r) => r.person === who);
+    const fBills = bills.filter((r) => (r.scope ?? "Common") === scope);
+    const fInvestments = investments.filter((r) => (r.scope ?? "Common") === scope);
     return buildOverview(
       {
         income: fIncome, expenses: fExpenses, personalExpenses: fPersonal,
-        bills: fBills, investments,
+        bills: fBills, investments: fInvestments,
         incomeCategories: config.incomeCategories,
         expenseCategories: config.expenseCategories,
         billCategories: config.billCategories,
@@ -88,35 +96,48 @@ export default function Dashboard() {
 
   const p1 = config.p1Name;
   const p2 = config.p2Name;
+  const isBoth = who === "Both";
 
   const totalsBar = [
     { name: "Income", value: overview.totalIncome },
-    { name: "Expenses", value: overview.totalExpenses },
-    { name: "Individual", value: overview.totalPersonal },
-    { name: "Bills", value: overview.totalBills },
+    {
+      name: isBoth ? "Common Exp." : "Individual Exp.",
+      value: isBoth ? overview.totalExpenses : overview.totalPersonal,
+    },
+    { name: isBoth ? "Common Bills" : "Individual Bills", value: overview.totalBills },
     { name: "Investments", value: overview.totalInvestments },
     { name: "Saved", value: overview.totalSaved },
   ];
 
-  // All money spent, merged by category across every spending source
-  // (common expenses + individual expenses + bills). Same category name from
-  // different sources collapses into a single slice.
+  // All money spent, merged by category across the spending sources in scope for
+  // this tab (Both: common expenses + common bills; a person: their individual
+  // expenses + their individual bills). Same category from different sources
+  // collapses into a single slice.
   const spendingByCategory: CategoryTotal[] = (() => {
     const m = new Map<string, number>();
-    for (const ct of [...overview.expenses, ...overview.personal, ...overview.bills]) {
+    const sources = isBoth
+      ? [...overview.expenses, ...overview.bills]
+      : [...overview.personal, ...overview.bills];
+    for (const ct of sources) {
       m.set(ct.category, (m.get(ct.category) ?? 0) + ct.value);
     }
     return [...m].map(([category, value]) => ({ category, value }));
   })();
 
-  // Where the income went: each outflow bucket plus what's left as savings.
-  const moneyDistribution: CategoryTotal[] = [
-    { category: "Common Expenses", value: overview.totalExpenses },
-    { category: "Individual Expenses", value: overview.totalPersonal },
-    { category: "Bills", value: overview.totalBills },
-    { category: "Investments", value: overview.totalInvestments },
-    { category: "Saved", value: overview.totalSaved },
-  ];
+  // Where the income went: each outflow bucket in scope plus what's left as savings.
+  const moneyDistribution: CategoryTotal[] = isBoth
+    ? [
+        { category: "Common Expenses", value: overview.totalExpenses },
+        { category: "Common Bills", value: overview.totalBills },
+        { category: "Investments", value: overview.totalInvestments },
+        { category: "Saved", value: overview.totalSaved },
+      ]
+    : [
+        { category: "Individual Expenses", value: overview.totalPersonal },
+        { category: "Individual Bills", value: overview.totalBills },
+        { category: "Investments", value: overview.totalInvestments },
+        { category: "Saved", value: overview.totalSaved },
+      ];
 
   return (
     <div>
@@ -150,19 +171,23 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {who !== "Both" && (
+      {!isBoth && (
         <p className="subtitle" style={{ marginTop: -8 }}>
           Showing <strong>{who === "P1" ? p1 : p2}</strong>: their income, their individual
-          expenses, and what they paid out of pocket (common expenses + bills they fronted).
-          Investments aren’t attributed to a person, so they appear in full.
+          expenses, individual bills, and individual investments. Shared/common items
+          live on the “Both” tab.
         </p>
       )}
 
       <div className="cards">
         <Card label="Total Income" value={overview.totalIncome} tone="pos" />
-        <Card label="Common Expenses" value={overview.totalExpenses} tone="neg" />
-        <Card label="Individual Expenses" value={overview.totalPersonal} tone="neg" />
-        <Card label="Total Bills" value={overview.totalBills} tone="neg" />
+        {isBoth ? (
+          <Card label="Common Expenses" value={overview.totalExpenses} tone="neg" />
+        ) : (
+          <Card label="Individual Expenses" value={overview.totalPersonal} tone="neg" />
+        )}
+        <Card label={isBoth ? "Common Bills" : "Individual Bills"}
+              value={overview.totalBills} tone="neg" />
         <Card label="Total Investments" value={overview.totalInvestments} />
         <Card label="Total Saved" value={overview.totalSaved}
               tone={overview.totalSaved >= 0 ? "pos" : "neg"} />
@@ -183,11 +208,20 @@ export default function Dashboard() {
 
       <div className="charts">
         <PieCard title="Income by category" data={overview.income} />
-        <PieCard title="Common expenses by category" data={overview.expenses} />
-        <PieCard title="Individual expenses by category" data={overview.personal} />
-        <PieCard title="Bills by category" data={overview.bills} />
-        <PieCard title="Investments by category" data={overview.investments} />
-        <PieCard title="Total spending by category" data={spendingByCategory} />
+        {isBoth ? (
+          <PieCard title="Common expenses by category" data={overview.expenses} />
+        ) : (
+          <PieCard title="Individual expenses by category" data={overview.personal} />
+        )}
+        <PieCard
+          title={isBoth ? "Common Bills by category" : "Individual Bills by category"}
+          data={overview.bills}
+        />
+        <PieCard title="Investments by name" data={overview.investments} />
+        <PieCard
+          title={isBoth ? "Total common spending by category" : "Total spending by category"}
+          data={spendingByCategory}
+        />
         <PieCard title="Total money distribution" data={moneyDistribution} />
       </div>
 
@@ -201,6 +235,8 @@ export default function Dashboard() {
             <Tooltip
               formatter={(v: number) => fmtMoney(v)}
               contentStyle={{ background: "#171a2b", border: "1px solid #2a2f4a" }}
+              itemStyle={{ color: "#e7e9f3" }}
+              labelStyle={{ color: "#e7e9f3" }}
             />
             <Legend />
             <Bar dataKey="value" name="Amount" fill="#6c8cff" radius={[6, 6, 0, 0]} />
@@ -378,14 +414,14 @@ function PieCard({ title, data }: { title: string; data: CategoryTotal[] }) {
       {slices.length === 0 ? (
         <div className="empty">No data for this period.</div>
       ) : (
-        <ResponsiveContainer width="100%" height={240}>
+        <ResponsiveContainer width="100%" height={260}>
           <PieChart>
             <Pie
               data={slices}
               dataKey="value"
               nameKey="category"
-              outerRadius={90}
-              label={(e: { category: string }) => e.category}
+              cy="42%"
+              outerRadius={80}
             >
               {slices.map((_, i) => (
                 <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
@@ -394,6 +430,15 @@ function PieCard({ title, data }: { title: string; data: CategoryTotal[] }) {
             <Tooltip
               formatter={(v: number) => fmtMoney(v)}
               contentStyle={{ background: "#171a2b", border: "1px solid #2a2f4a" }}
+              itemStyle={{ color: "#e7e9f3" }}
+              labelStyle={{ color: "#e7e9f3" }}
+            />
+            {/* Category names live in a wrapping legend instead of radial
+                outside-labels, which clipped off-screen on narrow phones. */}
+            <Legend
+              verticalAlign="bottom"
+              iconType="circle"
+              wrapperStyle={{ fontSize: 12 }}
             />
           </PieChart>
         </ResponsiveContainer>

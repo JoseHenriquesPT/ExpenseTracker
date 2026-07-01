@@ -148,6 +148,89 @@ export function buildOverview(
 }
 
 // ---------------------------------------------------------------------------
+// Investment holdings & realized profit (average-cost basis)
+// ---------------------------------------------------------------------------
+
+/** Units implied by a row: the stored quantity, else value / pricePoint, else
+ *  null when neither is known (legacy value-only rows). */
+export function investmentUnits(r: Investment): number | null {
+  if (r.units != null) return r.units;
+  if (r.pricePoint != null && r.pricePoint > 0) return r.value / r.pricePoint;
+  return null;
+}
+
+export interface InvestmentHolding {
+  name: string;
+  units: number;      // quantity still held
+  costBasis: number;  // cost of the units still held
+  avgCost: number;    // costBasis / units (0 when nothing held)
+  invested: number;   // gross money put in (sum of Invested values)
+  withdrawn: number;  // gross money taken out (sum of Withdraw values)
+  realized: number;   // realized profit booked on withdrawals so far
+}
+
+export interface InvestmentSummary {
+  /** Realized profit per Withdraw row id; null when it can't be computed
+   *  (no unit data, or nothing was held to sell against). */
+  profitByRow: Map<number, number | null>;
+  holdings: InvestmentHolding[];
+}
+
+/**
+ * Walk every investment transaction in date order, per name, keeping a running
+ * average-cost holding. A Withdraw books realized profit = proceeds − (units ×
+ * average cost); Invested rows just grow the holding. This is order-sensitive,
+ * so it always processes the full history (never a period slice).
+ */
+export function summarizeInvestments(rows: Investment[]): InvestmentSummary {
+  const byName = new Map<string, Investment[]>();
+  for (const r of rows) {
+    const list = byName.get(r.category);
+    if (list) list.push(r);
+    else byName.set(r.category, [r]);
+  }
+
+  const profitByRow = new Map<number, number | null>();
+  const holdings: InvestmentHolding[] = [];
+
+  for (const [name, list] of byName) {
+    const sorted = [...list].sort((a, b) =>
+      a.date !== b.date ? (a.date < b.date ? -1 : 1) : (a.id ?? 0) - (b.id ?? 0)
+    );
+
+    let units = 0, cost = 0, invested = 0, withdrawn = 0, realized = 0;
+    for (const r of sorted) {
+      const u = investmentUnits(r);
+      if (r.action === "Invested") {
+        invested += r.value;
+        if (u != null) { units += u; cost += r.value; }
+      } else {
+        withdrawn += r.value;
+        const avg = units > 0 ? cost / units : 0;
+        if (u != null && units > 0) {
+          const costOfSold = avg * Math.min(u, units);
+          const profit = r.value - costOfSold;
+          if (r.id != null) profitByRow.set(r.id, profit);
+          realized += profit;
+          units = Math.max(0, units - u);
+          cost = units <= 1e-9 ? 0 : cost - costOfSold;
+        } else if (r.id != null) {
+          profitByRow.set(r.id, null);
+        }
+      }
+    }
+    if (units <= 1e-9) { units = 0; cost = 0; }
+    holdings.push({
+      name, units, costBasis: cost,
+      avgCost: units > 0 ? cost / units : 0,
+      invested, withdrawn, realized,
+    });
+  }
+
+  return { profitByRow, holdings };
+}
+
+// ---------------------------------------------------------------------------
 // Two-person settlement (income-proportional fair share)
 // ---------------------------------------------------------------------------
 

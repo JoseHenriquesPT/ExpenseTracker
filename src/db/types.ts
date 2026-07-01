@@ -6,8 +6,11 @@ export type InvestmentAction = "Invested" | "Withdraw";
 
 /** The two people the tracker distinguishes between. */
 export type Person = "P1" | "P2";
-/** Whose responsibility a bill is: one person, or shared. */
-export type BillScope = "P1" | "P2" | "Common";
+/** Whose money an item is: one person's (individual), or shared (Common).
+ *  Used by bills and investments to route them to the right Dashboard tab. */
+export type Scope = "P1" | "P2" | "Common";
+/** @deprecated Alias kept for existing bill code — use {@link Scope}. */
+export type BillScope = Scope;
 
 /** Common fields for any dated money row. */
 export interface Entry {
@@ -35,9 +38,18 @@ export interface PersonalExpenseEntry extends Entry {
   person: Person;
 }
 
-/** Investments sheet — adds an Action (Invested / Withdraw). */
+/** Investments sheet. `category` holds the investment's NAME (e.g. a ticker or
+ *  fund). Each transaction records an Action plus the trade's economics:
+ *  `value` = money moved, `pricePoint` = price per unit, `units` = quantity.
+ *  These satisfy value ≈ pricePoint × units; the form derives whichever one is
+ *  left blank. Invested rows add units to the holding, Withdraw rows remove
+ *  them. `scope` routes the row to the Both (Common) or a person's Dashboard tab.
+ *  pricePoint/units are optional so legacy rows (value-only) still load. */
 export interface Investment extends Entry {
   action: InvestmentAction;
+  scope: Scope;
+  pricePoint?: number;
+  units?: number;
 }
 
 /** Bills — a paid bill. Registering one is assumed to mean it was paid, so a

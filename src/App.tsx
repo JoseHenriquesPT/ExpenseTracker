@@ -1,15 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { ensureConfig } from "./db/db";
-import { supabase } from "./db/supabase";
 import { useOnline } from "./lib/useOnline";
 import Toaster from "./components/Toaster";
 import ConfirmDialog from "./components/ConfirmDialog";
 
 const links = [
   { to: "/", label: "Dashboard", end: true },
-  { to: "/expenses", label: "Common Expenses" },
-  { to: "/personal", label: "Individual Expenses" },
+  { to: "/expenses", label: "Expenses" },
   { to: "/income", label: "Income" },
   { to: "/investments", label: "Investments" },
   { to: "/bills", label: "Bills" },
@@ -17,13 +15,11 @@ const links = [
 ];
 
 export default function App() {
-  const [email, setEmail] = useState("");
   const online = useOnline();
 
   // Seed the config singleton on first launch.
   useEffect(() => {
     ensureConfig();
-    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ""));
   }, []);
 
   return (
@@ -42,12 +38,6 @@ export default function App() {
             </NavLink>
           ))}
         </nav>
-        <div className="sidebar-foot">
-          {email && <div className="subtitle" style={{ margin: "0 0 6px" }}>{email}</div>}
-          <button className="ghost" onClick={() => supabase.auth.signOut()}>
-            Sign out
-          </button>
-        </div>
       </aside>
       <main className="content">
         {!online && (

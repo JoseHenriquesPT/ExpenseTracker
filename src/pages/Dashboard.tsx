@@ -7,8 +7,8 @@ import {
 import { db } from "../db/db";
 import type { Scope, Person, SettlementRecord } from "../db/types";
 import {
-  buildOverview, computeSettlement, monthStart, monthEnd, yearStart, yearEnd,
-  toISO, type CategoryTotal, type Settlement,
+  buildOverview, commonShareFor, computeSettlement, monthStart, monthEnd,
+  yearStart, yearEnd, toISO, type CategoryTotal, type Settlement,
 } from "../lib/finance";
 import { fmtMoney } from "../lib/format";
 import { useOnline } from "../lib/useOnline";
@@ -82,6 +82,24 @@ export default function Dashboard() {
     );
   }, [ready, who, start, end, config, income, expenses, personal, investments, bills]);
 
+  // The common pool broken down by category. Needed on an individual tab too,
+  // where each person is charged their share of it, so it's computed from the
+  // unfiltered data rather than from `overview`.
+  const commonOverview = useMemo(() => {
+    if (!ready) return null;
+    return buildOverview(
+      {
+        income: [], expenses, personalExpenses: [], investments: [],
+        bills: bills.filter((r) => (r.scope ?? "Common") === "Common"),
+        incomeCategories: config.incomeCategories,
+        expenseCategories: config.expenseCategories,
+        billCategories: config.billCategories,
+        investmentCategories: config.investmentCategories,
+      },
+      start, end
+    );
+  }, [ready, start, end, config, expenses, bills]);
+
   const settlement = useMemo(() => {
     if (!ready) return null;
     return computeSettlement({ income, expenses, bills, settlements }, start, end);
@@ -92,11 +110,24 @@ export default function Dashboard() {
     return Array.from({ length: 8 }, (_, i) => base - 4 + i);
   }, [now]);
 
-  if (!overview || !settlement || !config) return <div className="empty">Loading…</div>;
+  if (!overview || !commonOverview || !settlement || !config)
+    return <div className="empty">Loading…</div>;
 
   const p1 = config.p1Name;
   const p2 = config.p2Name;
   const isBoth = who === "Both";
+
+  // On an individual tab the person also carries their income-proportional
+  // share of the household's common expenses and bills — without it their
+  // "saved" would count the shared spending as free.
+  const commonShare = isBoth
+    ? null
+    : commonShareFor(
+        commonOverview.expenses,
+        commonOverview.bills,
+        who === "P1" ? settlement.shareP1 : settlement.shareP2
+      );
+  const totalSaved = overview.totalSaved - (commonShare?.total ?? 0);
 
   const totalsBar = [
     { name: "Income", value: overview.totalIncome },
@@ -105,19 +136,20 @@ export default function Dashboard() {
       value: isBoth ? overview.totalExpenses : overview.totalPersonal,
     },
     { name: isBoth ? "Common Bills" : "Individual Bills", value: overview.totalBills },
+    ...(commonShare ? [{ name: "Common Share", value: commonShare.total }] : []),
     { name: "Investments", value: overview.totalInvestments },
-    { name: "Saved", value: overview.totalSaved },
+    { name: "Saved", value: totalSaved },
   ];
 
   // All money spent, merged by category across the spending sources in scope for
   // this tab (Both: common expenses + common bills; a person: their individual
-  // expenses + their individual bills). Same category from different sources
-  // collapses into a single slice.
+  // expenses + their individual bills + their share of the common categories).
+  // Same category from different sources collapses into a single slice.
   const spendingByCategory: CategoryTotal[] = (() => {
     const m = new Map<string, number>();
     const sources = isBoth
       ? [...overview.expenses, ...overview.bills]
-      : [...overview.personal, ...overview.bills];
+      : [...overview.personal, ...overview.bills, ...commonShare!.byCategory];
     for (const ct of sources) {
       m.set(ct.category, (m.get(ct.category) ?? 0) + ct.value);
     }
@@ -130,13 +162,15 @@ export default function Dashboard() {
         { category: "Common Expenses", value: overview.totalExpenses },
         { category: "Common Bills", value: overview.totalBills },
         { category: "Investments", value: overview.totalInvestments },
-        { category: "Saved", value: overview.totalSaved },
+        { category: "Saved", value: totalSaved },
       ]
     : [
         { category: "Individual Expenses", value: overview.totalPersonal },
         { category: "Individual Bills", value: overview.totalBills },
+        { category: "Share of Common Expenses", value: commonShare!.expenses },
+        { category: "Share of Common Bills", value: commonShare!.bills },
         { category: "Investments", value: overview.totalInvestments },
-        { category: "Saved", value: overview.totalSaved },
+        { category: "Saved", value: totalSaved },
       ];
 
   return (
@@ -171,11 +205,16 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {!isBoth && (
+      {!isBoth && commonShare && (
         <p className="subtitle" style={{ marginTop: -8 }}>
           Showing <strong>{who === "P1" ? p1 : p2}</strong>: their income, their individual
-          expenses, individual bills, and individual investments. Shared/common items
-          live on the “Both” tab.
+          expenses, individual bills, and individual investments, plus their{" "}
+          <strong>{(commonShare.share * 100).toFixed(1)}%</strong> share of the household’s
+          common expenses and bills
+          {settlement.usedFallbackShare
+            ? " (split 50/50 — no income recorded this period)"
+            : " (their share of the period’s income)"}
+          . The full shared totals live on the “Both” tab.
         </p>
       )}
 
@@ -188,9 +227,12 @@ export default function Dashboard() {
         )}
         <Card label={isBoth ? "Common Bills" : "Individual Bills"}
               value={overview.totalBills} tone="neg" />
+        {commonShare && (
+          <Card label="Share of Common" value={commonShare.total} tone="neg" />
+        )}
         <Card label="Total Investments" value={overview.totalInvestments} />
-        <Card label="Total Saved" value={overview.totalSaved}
-              tone={overview.totalSaved >= 0 ? "pos" : "neg"} />
+        <Card label="Total Saved" value={totalSaved}
+              tone={totalSaved >= 0 ? "pos" : "neg"} />
       </div>
 
       {who === "Both" && (
@@ -217,9 +259,19 @@ export default function Dashboard() {
           title={isBoth ? "Common Bills by category" : "Individual Bills by category"}
           data={overview.bills}
         />
+        {commonShare && (
+          <PieCard
+            title="Share of common by category"
+            data={commonShare.byCategory}
+          />
+        )}
         <PieCard title="Investments by name" data={overview.investments} />
         <PieCard
-          title={isBoth ? "Total common spending by category" : "Total spending by category"}
+          title={
+            isBoth
+              ? "Total common spending by category"
+              : "Total spending by category (incl. share of common)"
+          }
           data={spendingByCategory}
         />
         <PieCard title="Total money distribution" data={moneyDistribution} />

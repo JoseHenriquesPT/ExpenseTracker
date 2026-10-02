@@ -49,6 +49,7 @@ h2 { margin: 0 0 4px; }
   font-size: 13px;
 }
 .home-link:hover { border-color: var(--accent); }
+.home-footer { margin-top: 24px; }
 
 .toolbar {
   display: flex;

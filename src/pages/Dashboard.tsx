@@ -159,20 +159,7 @@ export default function Dashboard() {
   return (
     <div>
       <div className="toolbar">
-        <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
-          <option value="monthly">Monthly</option>
-          <option value="annual">Annual</option>
-        </select>
-        {mode === "monthly" && (
-          <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
-            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-          </select>
-        )}
-        <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
-          {years.map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
-
-        <div className="segmented" style={{ marginLeft: "auto" }}>
+        <div className="segmented">
           {([["Both", "Both"], ["P1", p1], ["P2", p2]] as [Who, string][]).map(
             ([id, label]) => (
               <button
@@ -231,23 +218,15 @@ export default function Dashboard() {
 
       {/* The two headline pies: each person's income split into their fair
           share of expenses, what they invested and what they saved. */}
-      {isBoth && (
-        <div className="charts" style={{ marginBottom: 16 }}>
-          <PersonPie title={`${p1} — income split`} split={splits.p1} />
-          <PersonPie title={`${p2} — income split`} split={splits.p2} />
-        </div>
-      )}
-
       <div className="charts">
+        <PieCard title="Spending by category" data={spendingByCategory} />
+        <PieCard title="Bills by category" data={overview.bills} />
         <PieCard title="Income by category" data={overview.income} />
         {!isBoth && (
           <PieCard title="Individual expenses by category" data={overview.personal} />
         )}
-        <PieCard
-          title={isBoth ? "Common Bills by category" : "Individual Bills by category"}
-          data={overview.bills}
-        />
-        <PieCard title="Spending by category" data={spendingByCategory} />
+        {isBoth && <PersonPie title={`${p1} — income split`} split={splits.p1} />}
+        {isBoth && <PersonPie title={`${p2} — income split`} split={splits.p2} />}
       </div>
 
       <div className="chart-card panel" style={{ marginTop: 16 }}>
@@ -267,6 +246,23 @@ export default function Dashboard() {
             <Bar dataKey="value" name="Amount" fill="#6c8cff" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Period controls live at the bottom so the numbers are the first thing
+          you see; the person switcher stays at the top as the view tab. */}
+      <div className="toolbar" style={{ marginTop: 16, marginBottom: 0 }}>
+        <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
+          <option value="monthly">Monthly</option>
+          <option value="annual">Annual</option>
+        </select>
+        {mode === "monthly" && (
+          <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+          </select>
+        )}
+        <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
       </div>
     </div>
   );

@@ -7,7 +7,6 @@ const LINKS = [
   { to: "/bills", label: "Bills" },
   { to: "/planned", label: "Planned" },
   { to: "/history", label: "History" },
-  { to: "/settings", label: "Settings" },
 ];
 
 export default function HomePage() {
@@ -26,6 +25,10 @@ export default function HomePage() {
       </nav>
 
       <Dashboard />
+
+      <footer className="home-footer">
+        <Link to="/settings" className="home-link">Settings</Link>
+      </footer>
     </div>
   );
 }

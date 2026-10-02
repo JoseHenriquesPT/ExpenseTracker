@@ -220,7 +220,6 @@ export default function Dashboard() {
           share of expenses, what they invested and what they saved. */}
       <div className="charts">
         <PieCard title="Spending by category" data={spendingByCategory} />
-        <PieCard title="Bills by category" data={overview.bills} />
         <PieCard title="Income by category" data={overview.income} />
         {!isBoth && (
           <PieCard title="Individual expenses by category" data={overview.personal} />

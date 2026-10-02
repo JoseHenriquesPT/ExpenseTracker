@@ -40,15 +40,17 @@ h2 { margin: 0 0 4px; }
 .home-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
 .home-link {
   display: inline-block;
-  padding: 7px 12px;
+  padding: 8px 14px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 9px;
   background: var(--panel);
   color: var(--text);
   text-decoration: none;
   font-size: 13px;
+  transition: border-color .12s ease, background .12s ease, transform .08s ease;
 }
-.home-link:hover { border-color: var(--accent); }
+.home-link:hover { border-color: var(--accent); background: var(--panel-2); }
+.home-link:active { transform: scale(.98); }
 .home-footer { margin-top: 24px; }
 
 .toolbar {
@@ -265,6 +267,24 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 @media (max-width: 768px) {
   .content { padding: 16px 14px 40px; }
   .offline-banner { position: static; }
+
+  /* Home tabs: an even 2-column grid of large touch targets that fits the
+     phone screen; the odd last tab spans the full width. */
+  .home-links {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .home-links .home-link {
+    text-align: center;
+    padding: 14px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 12px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  }
+  .home-links .home-link:last-child { grid-column: 1 / -1; }
 
   /* Collapse the multi-column grids so cards/charts don't overlap. */
   .cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }

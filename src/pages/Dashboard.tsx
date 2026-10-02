@@ -224,8 +224,8 @@ export default function Dashboard() {
         {!isBoth && (
           <PieCard title="Individual expenses by category" data={overview.personal} />
         )}
-        {isBoth && <PersonPie title={`${p1} — income split`} split={splits.p1} />}
-        {isBoth && <PersonPie title={`${p2} — income split`} split={splits.p2} />}
+        {isBoth && <PersonPie title={`${p1}'s Totals`} split={splits.p1} />}
+        {isBoth && <PersonPie title={`${p2}'s Totals`} split={splits.p2} />}
       </div>
 
       <div className="chart-card panel" style={{ marginTop: 16 }}>

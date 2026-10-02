@@ -6,7 +6,6 @@ const LINKS = [
   { to: "/income", label: "Income" },
   { to: "/bills", label: "Bills" },
   { to: "/planned", label: "Planned" },
-  { to: "/history", label: "History" },
 ];
 
 export default function HomePage() {
@@ -27,6 +26,7 @@ export default function HomePage() {
       <Dashboard />
 
       <footer className="home-footer">
+        <Link to="/history" className="home-link">History</Link>
         <Link to="/settings" className="home-link">Settings</Link>
       </footer>
     </div>

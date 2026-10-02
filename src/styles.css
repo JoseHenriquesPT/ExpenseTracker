@@ -51,7 +51,7 @@ h2 { margin: 0 0 4px; }
 }
 .home-link:hover { border-color: var(--accent); background: var(--panel-2); }
 .home-link:active { transform: scale(.98); }
-.home-footer { margin-top: 24px; }
+.home-footer { display: flex; gap: 8px; margin-top: 24px; }
 
 .toolbar {
   display: flex;
@@ -284,7 +284,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     border-radius: 12px;
     background: linear-gradient(180deg, var(--panel-2), var(--panel));
   }
-  .home-links .home-link:last-child { grid-column: 1 / -1; }
+  /* Only stretch the last tab when the grid has an odd number of links. */
+  .home-links .home-link:last-child:nth-child(odd) { grid-column: 1 / -1; }
 
   /* Collapse the multi-column grids so cards/charts don't overlap. */
   .cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }

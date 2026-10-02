@@ -19,7 +19,7 @@ function withOneRow(links: PlannedLink[]): PlannedLink[] {
 function cleanLinks(links: PlannedLink[]): PlannedLink[] {
   return links
     .map((l) => ({ text: l.text.trim(), url: l.url.trim() }))
-    .filter((l) => l.text || l.url);
+    .filter((l) => l.url);
 }
 
 export default function PlannedPage() {
@@ -109,30 +109,37 @@ function PlanCard({
   const savedRef = useRef(savedKey);
   const [name, setName] = useState(plan.name);
   const [links, setLinks] = useState<PlannedLink[]>(withOneRow(plan.links));
+  const [editing, setEditing] = useState(autoFocusName);
 
   // Re-sync from the database when the other person edits the plan, but never
   // clobber a draft that hasn't been saved yet.
   useEffect(() => {
     if (savedRef.current === savedKey) return;
     savedRef.current = savedKey;
-    setName(plan.name);
-    setLinks(withOneRow(plan.links));
-  }, [savedKey, plan.name, plan.links]);
+    if (!editing) {
+      setName(plan.name);
+      setLinks(withOneRow(plan.links));
+    }
+  }, [savedKey, editing, plan.name, plan.links]);
 
   const cleaned = cleanLinks(links);
   const dirty =
-    JSON.stringify({ name: name.trim(), links: cleaned }) !== savedKey;
+    editing && JSON.stringify({ name: name.trim(), links: cleaned }) !== savedKey;
 
   async function save() {
-    await db.plannedExpenses.put({
-      ...plan,
-      name: name.trim(),
-      links: cleaned,
-    });
+    if (dirty) {
+      const trimmed = name.trim();
+      await db.plannedExpenses.put({ ...plan, name: trimmed, links: cleaned });
+      setName(trimmed);
+      setLinks(withOneRow(cleaned));
+    }
+    setEditing(false);
   }
 
   async function purchase() {
-    if (dirty) await save();
+    if (dirty) {
+      await db.plannedExpenses.put({ ...plan, name: name.trim(), links: cleaned });
+    }
     onPurchase({ ...plan, name: name.trim(), links: cleaned });
   }
 
@@ -147,8 +154,8 @@ function PlanCard({
     if (ok) await db.plannedExpenses.delete(plan.id);
   }
 
-  function setLink(index: number, patch: Partial<PlannedLink>) {
-    setLinks((ls) => ls.map((l, i) => (i === index ? { ...l, ...patch } : l)));
+  function setLink(index: number, url: string) {
+    setLinks((ls) => ls.map((l, i) => (i === index ? { ...l, url } : l)));
   }
 
   if (plan.purchased) {
@@ -192,6 +199,32 @@ function PlanCard({
     );
   }
 
+  if (!editing) {
+    const urls = plan.links.filter((l) => l.url);
+    return (
+      <div className="plan collapsed">
+        <div className="plan-name">{plan.name || "Untitled planned expense"}</div>
+        {urls.length > 0 && (
+          <div className="plan-links read-only">
+            {urls.map((l, i) => (
+              <a key={i} href={l.url} target="_blank" rel="noreferrer">
+                {l.url}
+              </a>
+            ))}
+          </div>
+        )}
+        <div className="plan-actions">
+          <button onClick={() => setEditing(true)} disabled={busy}>
+            Edit
+          </button>
+          <button onClick={() => run(purchase)} disabled={!online || busy}>
+            Purchased
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="plan">
       <input
@@ -206,26 +239,22 @@ function PlanCard({
       <div className="plan-links">
         {links.map((l, i) => (
           <div className="plan-link-row" key={i}>
-            <input
-              placeholder="Text"
-              value={l.text}
-              onChange={(e) => setLink(i, { text: e.target.value })}
-              disabled={busy}
-            />
+            {i > 0 && (
+              <button
+                className="ghost link-remove"
+                title="Remove link"
+                onClick={() => setLinks(links.filter((_, j) => j !== i))}
+                disabled={busy}
+              >
+                ✕
+              </button>
+            )}
             <input
               placeholder="https://…"
               value={l.url}
-              onChange={(e) => setLink(i, { url: e.target.value })}
+              onChange={(e) => setLink(i, e.target.value)}
               disabled={busy}
             />
-            <button
-              className="ghost"
-              title="Remove link"
-              onClick={() => setLinks(links.filter((_, j) => j !== i))}
-              disabled={busy || links.length === 1}
-            >
-              ✕
-            </button>
           </div>
         ))}
         <button
@@ -238,15 +267,13 @@ function PlanCard({
       </div>
 
       <div className="plan-actions">
-        {dirty && (
-          <button
-            className="primary"
-            onClick={() => run(save)}
-            disabled={!online || busy}
-          >
-            Save
-          </button>
-        )}
+        <button
+          className="primary"
+          onClick={() => run(save)}
+          disabled={busy || (dirty && !online)}
+        >
+          Save
+        </button>
         <button onClick={() => run(purchase)} disabled={!online || busy}>
           Purchased
         </button>

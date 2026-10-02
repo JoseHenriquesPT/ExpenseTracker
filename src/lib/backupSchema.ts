@@ -1,6 +1,6 @@
 import type {
   Bill, Config, ExpenseEntry, IncomeEntry, Investment, InvestmentAction,
-  PersonalExpenseEntry, Person, Scope, SettlementRecord,
+  Person, PersonalExpenseEntry, PlannedExpense, Scope, SettlementRecord,
 } from "../db/types";
 
 /** A backup row as stored in the exported JSON (ids are ignored on import). */
@@ -14,6 +14,7 @@ export interface BackupData {
   personalExpenses: BackupRow<PersonalExpenseEntry>[];
   investments: BackupRow<Investment>[];
   bills: BackupRow<Bill>[];
+  plannedExpenses: BackupRow<PlannedExpense>[];
   settlements: BackupRow<SettlementRecord>[];
   config: BackupRow<Config>[];
 }
@@ -106,6 +107,27 @@ function stringList(row: Row, key: string, where: string): string[] {
   return v as string[];
 }
 
+/** A boolean that may be absent (older exports, hand-made files): absent/null
+ *  means false, anything that isn't a boolean is an error. */
+function boolField(row: Row, key: string, where: string): boolean {
+  const v = row[key];
+  if (v === undefined || v === null) return false;
+  if (typeof v !== "boolean") fail(where, `"${key}" must be true or false`);
+  return v;
+}
+
+/** The links list on a planned expense: each row needs both a text and a URL. */
+function plannedLinks(row: Row, where: string): PlannedExpense["links"] {
+  const v = row.links;
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) fail(where, `"links" must be an array`);
+  return v.map((item, j) => {
+    const at = `${where}.links[${j}]`;
+    if (!isRecord(item)) fail(at, "must be an object");
+    return { text: stringField(item, "text", at), url: stringField(item, "url", at) };
+  });
+}
+
 /** Shared Entry fields; null optionals are dropped so they restore as empty. */
 function entryFields(row: Row, where: string) {
   const description = optionalString(row, "description", where);
@@ -177,6 +199,28 @@ export function validateBackup(input: unknown): BackupData {
     };
   });
 
+  const plannedExpenses = tableRows(input, "plannedExpenses").map((row, i) => {
+    const where = `plannedExpenses[${i}]`;
+    const name = stringField(row, "name", where);
+    const links = plannedLinks(row, where);
+    const purchased = boolField(row, "purchased", where);
+    // Purchase details only exist on bought items; on a draft plan they're
+    // dropped, so junk can't sneak into the restore.
+    if (!purchased) return { name, links, purchased };
+    const scope = enumField(row, "scope", SCOPES, where) as Scope;
+    return {
+      name,
+      links,
+      purchased,
+      purchasedDate: dateField(row, "purchasedDate", where),
+      finalValue: numField(row, "finalValue", where),
+      scope,
+      ...(scope === "Common"
+        ? { paidBy: enumField(row, "paidBy", PEOPLE, where) as Person }
+        : {}),
+    };
+  });
+
   const settlements = tableRows(input, "settlements").map((row, i) => {
     const where = `settlements[${i}]`;
     return {
@@ -212,7 +256,8 @@ export function validateBackup(input: unknown): BackupData {
   return {
     version: 1,
     ...(exportedAt !== undefined ? { exportedAt } : {}),
-    expenses, income, personalExpenses, investments, bills, settlements, config,
+    expenses, income, personalExpenses, investments, bills, plannedExpenses,
+    settlements, config,
   };
 }
 
@@ -224,6 +269,7 @@ export function describeBackup(data: BackupData): string {
     `${data.personalExpenses.length} individual expenses`,
     `${data.investments.length} investments`,
     `${data.bills.length} bills`,
+    `${data.plannedExpenses.length} planned expenses`,
     `${data.settlements.length} settlements`,
   ].join(", ");
 }

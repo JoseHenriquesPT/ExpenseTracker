@@ -3,7 +3,7 @@ import { touch } from "./live";
 import { pushToast } from "../lib/toast";
 import type {
   ExpenseEntry, IncomeEntry, PersonalExpenseEntry, Investment,
-  Bill, SettlementRecord, Config,
+  Bill, PlannedExpense, SettlementRecord, Config,
 } from "./types";
 
 // Hosted storage: every table lives in Supabase Postgres, gated by Row-Level
@@ -20,6 +20,7 @@ const TABLE = {
   personalExpenses: "personal_expenses",
   investments: "investments",
   bills: "bills",
+  plannedExpenses: "planned_expenses",
   settlements: "settlements",
   config: "config",
 } as const;
@@ -158,6 +159,7 @@ export const db = {
   personalExpenses: new SupaTable<PersonalExpenseEntry>(TABLE.personalExpenses),
   investments: new SupaTable<Investment>(TABLE.investments),
   bills: new SupaTable<Bill>(TABLE.bills),
+  plannedExpenses: new SupaTable<PlannedExpense>(TABLE.plannedExpenses),
   settlements: new SupaTable<SettlementRecord>(TABLE.settlements),
   config: new SupaTable<Config>(TABLE.config),
 };

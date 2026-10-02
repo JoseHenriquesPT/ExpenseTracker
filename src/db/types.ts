@@ -60,6 +60,32 @@ export interface Bill extends Entry {
   paidBy: Person;
 }
 
+/** One link attached to a planned expense: where to find it, plus the text
+ *  shown for it (a note, a store name, why it's shortlisted, …). */
+export interface PlannedLink {
+  text: string;
+  url: string;
+}
+
+/** Planned Expenses — a wishlist of things to buy, kept as boxes. Each box has
+ *  a name and a list of links; it starts unpurchased. Marking it purchased
+ *  writes the final price into the shared or an individual expense ledger and
+ *  stamps the purchase details here, so the box stays as a record. */
+export interface PlannedExpense {
+  id?: number;
+  name: string;
+  links: PlannedLink[];
+  purchased: boolean;
+  /** ISO date the item was bought — set when purchased. */
+  purchasedDate?: string;
+  /** Price actually paid — set when purchased. */
+  finalValue?: number;
+  /** Where the expense landed: "Common" or a person — set when purchased. */
+  scope?: Scope;
+  /** Who fronted a Common purchase — set only when scope is "Common". */
+  paidBy?: Person;
+}
+
 /** A recorded settlement transfer that balances a period's shared pool.
  *  Tied to the exact date window it settles, so the Dashboard can subtract it
  *  from that period's computed balance (and undo by deleting the row). */

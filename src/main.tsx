@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import LedgerPage from "./pages/LedgerPage";
 import InvestmentsPage from "./pages/InvestmentsPage";
 import BillsPage from "./pages/BillsPage";
+import PlannedPage from "./pages/PlannedPage";
 import SettingsPage from "./pages/SettingsPage";
 import "./styles.css";
 
@@ -23,6 +24,7 @@ const router = createHashRouter([
       { path: "income", element: <LedgerPage tabs={["income"]} /> },
       { path: "investments", element: <InvestmentsPage /> },
       { path: "bills", element: <BillsPage /> },
+      { path: "planned", element: <PlannedPage /> },
       { path: "settings", element: <SettingsPage /> },
     ],
   },

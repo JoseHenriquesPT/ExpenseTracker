@@ -121,6 +121,38 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field label { color: var(--muted); font-size: 12px; }
 
+/* ---- Planned expenses ---- */
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+.plan {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.plan.purchased { border-color: var(--green); }
+.plan-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.plan-name { font-weight: 600; }
+.plan-name-input { width: 100%; font-weight: 600; }
+.plan-meta { color: var(--muted); font-size: 13px; }
+.purchased-badge { color: var(--green); border-color: var(--green); white-space: nowrap; }
+.plan-links { display: flex; flex-direction: column; gap: 8px; }
+.plan-link-row { display: flex; gap: 8px; align-items: center; }
+.plan-link-row input:first-child { flex: 0 1 40%; min-width: 0; }
+.plan-link-row input:nth-child(2) { flex: 1 1 auto; min-width: 0; }
+.plan-link-row button { padding: 6px 9px; }
+.plan-links.read-only a { color: var(--accent); word-break: break-all; }
+.plan-links.read-only span { color: var(--muted); }
+.add-link { align-self: flex-start; font-size: 13px; padding: 5px 10px; }
+.plan-actions { display: flex; gap: 8px; align-items: center; margin-top: auto; padding-top: 4px; }
+.plan-delete { margin-left: auto; }
+
 .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .segmented .seg { border: none; border-radius: 0; background: var(--panel-2); color: var(--muted); padding: 8px 14px; }
 .segmented .seg + .seg { border-left: 1px solid var(--border); }
@@ -238,6 +270,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   /* Collapse the multi-column grids so cards/charts don't overlap. */
   .cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .charts { grid-template-columns: 1fr; }
+  .plan-grid { grid-template-columns: 1fr; }
+  .plan-link-row { flex-wrap: wrap; }
+  .plan-link-row input:first-child,
+  .plan-link-row input:nth-child(2) { flex: 1 1 100%; }
 
   /* Wide tables scroll within their panel instead of crushing into columns. */
   .panel { overflow-x: auto; }

@@ -25,6 +25,13 @@ const validBackup = () => ({
       scope: "Common", paidBy: "P2", description: null,
     },
   ],
+  plannedExpenses: [
+    {
+      id: 8, name: "New couch",
+      links: [{ text: "Idea", url: "https://example.com/couch" }],
+      purchased: false,
+    },
+  ],
   settlements: [
     {
       id: 6, date: "2026-06-30", periodStart: "2026-06-01",
@@ -82,6 +89,107 @@ describe("validateBackup", () => {
     const out = validateBackup({ version: 1 });
     expect(out.expenses).toEqual([]);
     expect(out.config).toEqual([]);
+    expect(out.plannedExpenses).toEqual([]);
+  });
+
+  it("validates planned expenses, stripping ids and keeping link rows", () => {
+    const out = validateBackup(validBackup());
+    expect(out.plannedExpenses).toEqual([
+      {
+        name: "New couch",
+        links: [{ text: "Idea", url: "https://example.com/couch" }],
+        purchased: false,
+      },
+    ]);
+  });
+
+  it("keeps purchase details on a purchased plan", () => {
+    const out = validateBackup(
+      withRow("plannedExpenses", {
+        name: "New couch",
+        links: [],
+        purchased: true,
+        purchasedDate: "2026-07-01",
+        finalValue: 499.99,
+        scope: "Common",
+        paidBy: "P1",
+      })
+    );
+    expect(out.plannedExpenses[0]).toEqual({
+      name: "New couch",
+      links: [],
+      purchased: true,
+      purchasedDate: "2026-07-01",
+      finalValue: 499.99,
+      scope: "Common",
+      paidBy: "P1",
+    });
+  });
+
+  it("drops stray purchase details from an unpurchased plan", () => {
+    const out = validateBackup(
+      withRow("plannedExpenses", {
+        name: "New couch", links: [], purchased: false,
+        purchasedDate: "2026-07-01", finalValue: 10, scope: "P1", paidBy: "P2",
+      })
+    );
+    expect(out.plannedExpenses[0]).toEqual({
+      name: "New couch", links: [], purchased: false,
+    });
+  });
+
+  it("drops paidBy on an individual purchased plan — the scope is the person", () => {
+    const out = validateBackup(
+      withRow("plannedExpenses", {
+        name: "New couch", links: [], purchased: true,
+        purchasedDate: "2026-07-01", finalValue: 10, scope: "P2", paidBy: "P1",
+      })
+    );
+    expect(out.plannedExpenses[0]).not.toHaveProperty("paidBy");
+  });
+
+  it("requires date, price, valid scope and (for Common) payer on a purchased plan", () => {
+    const base = {
+      name: "New couch", links: [], purchased: true, scope: "P1",
+      purchasedDate: "2026-07-01", finalValue: 10,
+    };
+    expect(() =>
+      validateBackup(withRow("plannedExpenses", { ...base, scope: "Common" }))
+    ).toThrow(/paidBy/);
+    expect(() =>
+      validateBackup(withRow("plannedExpenses", { ...base, purchasedDate: undefined }))
+    ).toThrow(/purchasedDate/);
+    expect(() =>
+      validateBackup(withRow("plannedExpenses", { ...base, finalValue: undefined }))
+    ).toThrow(/finalValue/);
+    expect(() =>
+      validateBackup(withRow("plannedExpenses", { ...base, scope: "Both" }))
+    ).toThrow(/scope/);
+  });
+
+  it("treats a missing purchased flag as not purchased, but rejects junk types", () => {
+    const out = validateBackup(
+      withRow("plannedExpenses", { name: "New couch", links: [] })
+    );
+    expect(out.plannedExpenses[0].purchased).toBe(false);
+    expect(() =>
+      validateBackup(
+        withRow("plannedExpenses", { name: "New couch", links: [], purchased: "yes" })
+      )
+    ).toThrow(/purchased/);
+  });
+
+  it("rejects malformed link rows with the row position in the message", () => {
+    expect(() =>
+      validateBackup(
+        withRow("plannedExpenses", { name: "x", links: [{ text: "only text" }], purchased: false })
+      )
+    ).toThrow(/links\[0\]/);
+    expect(() =>
+      validateBackup(
+        withRow("plannedExpenses", { name: "x", links: "nope", purchased: false })
+      )
+    ).toThrow(/links/);
   });
 
   it("rejects non-objects, wrong versions and non-array tables", () => {

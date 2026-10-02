@@ -17,6 +17,7 @@ export async function exportBackup(): Promise<void> {
     personalExpenses: await db.personalExpenses.toArray(),
     investments: await db.investments.toArray(),
     bills: await db.bills.toArray(),
+    plannedExpenses: await db.plannedExpenses.toArray(),
     settlements: await db.settlements.toArray(),
     config: await db.config.toArray(),
   };

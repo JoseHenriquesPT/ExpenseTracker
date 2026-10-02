@@ -11,6 +11,7 @@ const links = [
   { to: "/income", label: "Income" },
   { to: "/investments", label: "Investments" },
   { to: "/bills", label: "Bills" },
+  { to: "/planned", label: "Planned" },
   { to: "/settings", label: "Settings" },
 ];
 

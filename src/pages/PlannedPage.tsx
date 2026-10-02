@@ -173,19 +173,7 @@ function PlanCard({
           <strong>{fmtMoney(plan.finalValue ?? 0)}</strong> · {who} ·{" "}
           {fmtDate(plan.purchasedDate ?? "")}
         </div>
-        {plan.links.length > 0 && (
-          <div className="plan-links read-only">
-            {plan.links.map((l, i) =>
-              l.url ? (
-                <a key={i} href={l.url} target="_blank" rel="noreferrer">
-                  {l.text || l.url}
-                </a>
-              ) : (
-                <span key={i}>{l.text}</span>
-              )
-            )}
-          </div>
-        )}
+        {plan.links.length > 0 && <PlannedLinks links={plan.links} />}
         <div className="plan-actions">
           <button
             className="ghost danger"
@@ -200,19 +188,10 @@ function PlanCard({
   }
 
   if (!editing) {
-    const urls = plan.links.filter((l) => l.url);
     return (
       <div className="plan collapsed">
         <div className="plan-name">{plan.name || "Untitled planned expense"}</div>
-        {urls.length > 0 && (
-          <div className="plan-links read-only">
-            {urls.map((l, i) => (
-              <a key={i} href={l.url} target="_blank" rel="noreferrer">
-                {l.url}
-              </a>
-            ))}
-          </div>
-        )}
+        <PlannedLinks links={plan.links} />
         <div className="plan-actions">
           <button onClick={() => setEditing(true)} disabled={busy}>
             Edit
@@ -285,6 +264,28 @@ function PlanCard({
           Delete
         </button>
       </div>
+    </div>
+  );
+}
+
+function PlannedLinks({ links }: { links: PlannedLink[] }) {
+  const [open, setOpen] = useState(false);
+  const urls = links.filter((l) => l.url);
+  if (!urls.length) return null;
+  return (
+    <div className="plan-link-list">
+      <button className="ghost link-toggle" onClick={() => setOpen(!open)}>
+        {open ? "▾" : "▸"} {urls.length} link{urls.length === 1 ? "" : "s"}
+      </button>
+      {open && (
+        <div className="plan-links read-only limited">
+          {urls.map((l, i) => (
+            <a key={i} href={l.url} target="_blank" rel="noreferrer">
+              {l.url}
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

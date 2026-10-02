@@ -17,13 +17,14 @@ cp .env.example .env.local   # fill in your Supabase URL + anon key
 npm run dev                  # http://localhost:5173
 ```
 
-First-time backend setup: run `supabase/migrations/0001_init.sql` in the Supabase
-SQL editor, add the allowed emails, and enable the Google auth provider. See the
-inline notes in that SQL file.
+First-time backend setup: run the files in `supabase/migrations/` in order
+(`0001` → `0005`) in the Supabase SQL editor, add the allowed emails, and enable
+the Google auth provider. See the inline notes in `0001_init.sql`.
 
-To run the optimized build locally:
+To run the tests and the optimized build locally:
 
 ```bash
+npm test
 npm run build
 npm run preview
 ```
@@ -78,5 +79,7 @@ The Dashboard's **Settle** button records that transfer for the period (stored i
 
 ## Backup
 
-Settings → Export/Import JSON. Export dumps every table to a JSON file; Import
-**replaces** all rows in the database with that file's contents.
+Settings → Export/Import JSON. Export dumps every table to a JSON file. Import
+validates the file first, asks for confirmation, then **replaces** all rows in a
+single database transaction (migration `0005`), so a bad or interrupted import
+can't leave half the data behind.

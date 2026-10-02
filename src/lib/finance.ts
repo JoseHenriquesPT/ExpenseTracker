@@ -1,6 +1,6 @@
 import type {
   Entry, ExpenseEntry, IncomeEntry, Investment, Bill,
-  SettlementRecord, Person,
+  SettlementRecord, Person, Scope,
 } from "../db/types";
 
 // ---------------------------------------------------------------------------
@@ -52,12 +52,26 @@ export function sumByCategory(
   start: string,
   end: string
 ): CategoryTotal[] {
-  return categories.map((category) => {
+  const out = categories.map((category) => {
     const value = rows
       .filter((r) => r.category === category && inWindow(r.date, start, end))
       .reduce((acc, r) => acc + r.value, 0);
     return { category, value };
   });
+
+  // Rows whose category was removed from Settings still count: otherwise their
+  // money would silently disappear from the Dashboard while staying visible in
+  // the ledger. Leftovers are grouped by name, alphabetical for a stable order.
+  const known = new Set(categories);
+  const extra = new Map<string, number>();
+  for (const r of rows) {
+    if (known.has(r.category) || !inWindow(r.date, start, end)) continue;
+    extra.set(r.category, (extra.get(r.category) ?? 0) + r.value);
+  }
+  for (const category of [...extra.keys()].sort()) {
+    out.push({ category, value: extra.get(category)! });
+  }
+  return out;
 }
 
 /** Net investments by category = Invested − Withdraw within window. */
@@ -67,7 +81,7 @@ export function netInvestmentByCategory(
   start: string,
   end: string
 ): CategoryTotal[] {
-  return categories.map((category) => {
+  const out = categories.map((category) => {
     const value = rows
       .filter((r) => r.category === category && inWindow(r.date, start, end))
       .reduce(
@@ -76,6 +90,18 @@ export function netInvestmentByCategory(
       );
     return { category, value };
   });
+
+  const known = new Set(categories);
+  const extra = new Map<string, number>();
+  for (const r of rows) {
+    if (known.has(r.category) || !inWindow(r.date, start, end)) continue;
+    const signed = r.action === "Invested" ? r.value : -r.value;
+    extra.set(r.category, (extra.get(r.category) ?? 0) + signed);
+  }
+  for (const category of [...extra.keys()].sort()) {
+    out.push({ category, value: extra.get(category)! });
+  }
+  return out;
 }
 
 export interface OverviewData {
@@ -202,16 +228,21 @@ export function commonShareFor(
 // Investment holdings & realized profit (average-cost basis)
 // ---------------------------------------------------------------------------
 
-/** Units implied by a row: the stored quantity, else value / pricePoint, else
- *  null when neither is known (legacy value-only rows). */
+/** Units implied by a row: the stored quantity when it's positive, else
+ *  value / pricePoint, else null when neither is known (legacy value-only
+ *  rows). Zero/negative stored units are treated as unknown data, never as a
+ *  real quantity — otherwise a withdrawal can book all proceeds as profit or
+ *  even grow the holding. */
 export function investmentUnits(r: Investment): number | null {
-  if (r.units != null) return r.units;
+  if (r.units != null && r.units > 0) return r.units;
   if (r.pricePoint != null && r.pricePoint > 0) return r.value / r.pricePoint;
   return null;
 }
 
 export interface InvestmentHolding {
   name: string;
+  /** Whose position this is; equal names in different scopes stay separate. */
+  scope: Scope;
   units: number;      // quantity still held
   costBasis: number;  // cost of the units still held
   avgCost: number;    // costBasis / units (0 when nothing held)
@@ -228,23 +259,27 @@ export interface InvestmentSummary {
 }
 
 /**
- * Walk every investment transaction in date order, per name, keeping a running
- * average-cost holding. A Withdraw books realized profit = proceeds − (units ×
- * average cost); Invested rows just grow the holding. This is order-sensitive,
- * so it always processes the full history (never a period slice).
+ * Walk every investment transaction in date order, per (scope, name), keeping a
+ * running average-cost holding. A Withdraw books realized profit = the proceeds
+ * for the units actually sold − (units × average cost); Invested rows just grow
+ * the holding. This is order-sensitive, so it always processes the full history
+ * (never a period slice).
  */
 export function summarizeInvestments(rows: Investment[]): InvestmentSummary {
-  const byName = new Map<string, Investment[]>();
+  // A position is (scope, name): the same name held by P1, P2 or both must not
+  // be pooled, or one person's sale would move the other's average cost.
+  const positions = new Map<string, { scope: Scope; name: string; rows: Investment[] }>();
   for (const r of rows) {
-    const list = byName.get(r.category);
-    if (list) list.push(r);
-    else byName.set(r.category, [r]);
+    const key = `${r.scope}\u0000${r.category}`;
+    const position = positions.get(key);
+    if (position) position.rows.push(r);
+    else positions.set(key, { scope: r.scope, name: r.category, rows: [r] });
   }
 
   const profitByRow = new Map<number, number | null>();
   const holdings: InvestmentHolding[] = [];
 
-  for (const [name, list] of byName) {
+  for (const { scope, name, rows: list } of positions.values()) {
     const sorted = [...list].sort((a, b) =>
       a.date !== b.date ? (a.date < b.date ? -1 : 1) : (a.id ?? 0) - (b.id ?? 0)
     );
@@ -259,11 +294,16 @@ export function summarizeInvestments(rows: Investment[]): InvestmentSummary {
         withdrawn += r.value;
         const avg = units > 0 ? cost / units : 0;
         if (u != null && units > 0) {
-          const costOfSold = avg * Math.min(u, units);
-          const profit = r.value - costOfSold;
+          // Never sell more than is held, and only count the proceeds for the
+          // units actually sold. Otherwise an over-withdrawal turns units that
+          // were never bought into profit.
+          const sold = Math.min(u, units);
+          const proceeds = r.value * (sold / u);
+          const costOfSold = avg * sold;
+          const profit = proceeds - costOfSold;
           if (r.id != null) profitByRow.set(r.id, profit);
           realized += profit;
-          units = Math.max(0, units - u);
+          units -= sold;
           cost = units <= 1e-9 ? 0 : cost - costOfSold;
         } else if (r.id != null) {
           profitByRow.set(r.id, null);
@@ -272,7 +312,7 @@ export function summarizeInvestments(rows: Investment[]): InvestmentSummary {
     }
     if (units <= 1e-9) { units = 0; cost = 0; }
     holdings.push({
-      name, units, costBasis: cost,
+      name, scope, units, costBasis: cost,
       avgCost: units > 0 ? cost / units : 0,
       invested, withdrawn, realized,
     });

@@ -4,21 +4,23 @@ import { db } from "../db/db";
 import type { BillScope, Person } from "../db/types";
 import { toISO } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
+import { personName, scopeName } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
+import { useBusy } from "../lib/useBusy";
 import PeriodFilter, { usePeriodFilter } from "../components/PeriodFilter";
 
 const SCOPES: BillScope[] = ["P1", "P2", "Common"];
 
 export default function BillsPage() {
   const online = useOnline();
+  const { busy, run } = useBusy();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const bills = useLiveQuery(() => db.bills.orderBy("date").reverse().toArray(), []);
 
-  const p1 = config?.p1Name ?? "P1";
-  const p2 = config?.p2Name ?? "P2";
-  const scopeLabel = (s: BillScope) => (s === "P1" ? p1 : s === "P2" ? p2 : "Common");
-  const personLabel = (p: Person) => (p === "P1" ? p1 : p2);
+  const names = { p1: config?.p1Name ?? "P1", p2: config?.p2Name ?? "P2" };
+  const scopeLabel = (s: BillScope) => scopeName(s, names);
+  const personLabel = (p: Person) => personName(p, names);
 
   // --- new bill form (registering a bill counts as paying it) ---
   const [date, setDate] = useState(toISO(new Date()));
@@ -80,7 +82,7 @@ export default function BillsPage() {
       <h2>Bills</h2>
       <p className="subtitle">
         Registering a bill counts it as paid. Bills tagged <strong>Common</strong> are
-        split in the monthly settlement; {p1}/{p2} bills are personal. This is what the
+        split in the monthly settlement; {names.p1}/{names.p2} bills are personal. This is what the
         dashboards count as “Bills”.
       </p>
 
@@ -115,8 +117,8 @@ export default function BillsPage() {
               <td data-label="Paid by">
                 {scope === "Common" ? (
                   <select value={paidBy} onChange={(e) => setPaidBy(e.target.value as Person)}>
-                    <option value="P1">{p1}</option>
-                    <option value="P2">{p2}</option>
+                    <option value="P1">{names.p1}</option>
+                    <option value="P2">{names.p2}</option>
                   </select>
                 ) : (
                   <span className="pill">{scopeLabel(scope)}</span>
@@ -126,7 +128,7 @@ export default function BillsPage() {
                 <input placeholder="optional" value={description} onChange={(e) => setDescription(e.target.value)} />
               </td>
               <td className="row-form-actions">
-                <button className="primary" onClick={addBill} disabled={!online}>Add</button>
+                <button className="primary" onClick={() => run(addBill)} disabled={!online || busy}>Add</button>
               </td>
             </tr>
           </tbody>

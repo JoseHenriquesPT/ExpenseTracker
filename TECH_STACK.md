@@ -24,7 +24,7 @@ reachable from any device, private to two people, and cheap/simple to host.
 | Auth | **Supabase Auth + Google OAuth** | Sign-in without managing passwords |
 | Security | **Postgres Row-Level Security** + email allowlist | Real enforcement at the database, not the client |
 | Realtime | **Supabase Realtime** | The other person's edits appear live |
-| Icons | **sharp** (dev only) | Generates the PWA icon set at build time |
+| Icons | Committed PNG set | Generated once; no build step needed |
 | Hosting | **Vercel** | Static-site hosting + CI deploys |
 
 ---
@@ -93,20 +93,20 @@ because every request must still pass RLS + a valid Google session. The
 
 ### Data-access layer
 [src/db/db.ts](src/db/db.ts) wraps Supabase queries in a small `SupaTable` class
-that re-implements the slice of the old Dexie API the pages relied on (`toArray`,
-`orderBy().reverse()`, `get`, `add`, `put`, `delete`, `clear`, `bulkAdd`). This
-is why the migration from local IndexedDB to hosted Postgres barely touched the
-page components. It also seeds the singleton `config` row (`ensureConfig`).
+(`toArray`, `orderBy().reverse()`, `get`, `add`, `put`, `delete`, `clear`,
+`bulkAdd`). It also seeds the singleton `config` row (`ensureConfig`).
 
-> **History:** earlier versions were local-first using **Dexie/IndexedDB**. Those
-> packages (`dexie`, `dexie-react-hooks`) are still in `package.json` but the data
-> path now goes through Supabase. See the [README](README.md) for the migration note.
+> **History:** earlier versions were local-first using **Dexie/IndexedDB**; those
+> packages have been removed and the data path goes through Supabase. See the
+> [README](README.md) for the migration note.
 
 ### Schema & migrations
-`supabase/migrations/0001_init.sql` defines all six tables plus the security
-model. It's run once by hand in the Supabase SQL editor (see [README](README.md)
-→ "First-time backend setup"). Dates are stored as ISO `YYYY-MM-DD` **text** so
-they sort lexicographically — which `finance.ts` relies on for its window queries.
+The `supabase/migrations/*.sql` files define the seven tables plus the security
+model, and are run in order by hand in the Supabase SQL editor (see
+[README](README.md) → "First-time backend setup"). Dates are stored as ISO
+`YYYY-MM-DD` **text** so they sort lexicographically — which `finance.ts` relies
+on for its window queries. `0005` adds `import_backup()`, which restores a
+backup in one transaction.
 
 ### Auth — Google OAuth
 [src/auth/AuthGate.tsx](src/auth/AuthGate.tsx) wraps the whole app. It uses
@@ -126,12 +126,14 @@ This is the real gate, enforced **in the database**, not the client:
   unauthorized rows.
 
 ### Realtime — live two-person sync
-[src/db/live.ts](src/db/live.ts) replaces `dexie-react-hooks`' `useLiveQuery`
-with a ~60-line module. A version counter bumps on (a) any Postgres change
-broadcast over a **Supabase Realtime** channel — so the *other* person's edits
-show up live — and (b) every local mutation (`touch()` in `db.ts`), so your own
-edits reflect immediately. `useSyncExternalStore` re-runs queries on each bump.
-The realtime publication is enabled for all tables in the migration SQL.
+[src/db/live.ts](src/db/live.ts) provides the app's `useLiveQuery` hook. A
+version counter bumps on (a) any Postgres change broadcast over a **Supabase
+Realtime** channel — so the *other* person's edits show up live — and (b) every
+local mutation (`touch()` in `db.ts`), so your own edits reflect immediately.
+`useSyncExternalStore` re-runs queries on each bump. The channel is opened only
+after sign-in, because RLS-protected `postgres_changes` bind the user's token at
+subscribe time. The realtime publication is enabled for all tables in the
+migration SQL.
 
 ---
 
@@ -143,17 +145,23 @@ ported from the original Excel formulas:
   expenses, individual expenses, bills, net investments) plus total saved.
 - **`computeSettlement`** — income-proportional fair-share split that resolves
   who owes whom in a single transfer, net of any recorded settlements.
+- **`summarizeInvestments`** — average-cost holdings and realized P/L, kept
+  separate per (scope, name) so people's positions never pool.
 
-[src/lib/format.ts](src/lib/format.ts) handles display formatting and
-[src/lib/backup.ts](src/lib/backup.ts) does JSON export/import (dump every table /
-clear-then-restore).
+[src/lib/format.ts](src/lib/format.ts) handles display formatting.
+[src/lib/backup.ts](src/lib/backup.ts) does JSON export/import;
+[src/lib/backupSchema.ts](src/lib/backupSchema.ts) validates a backup file
+before anything is written, and import runs through the transactional
+`import_backup()` Postgres function.
 
 ---
 
 ## Tooling & hosting
 
-- **sharp** (dev dependency) generates the PWA icon set (`pwa-192`, `pwa-512`,
-  maskable, apple-touch) from a source image into `public/`.
+- **PWA icons** (`pwa-192`, `pwa-512`, maskable, apple-touch) are committed
+  under `public/`; they were generated once and aren't rebuilt by the app.
+- **Vitest** runs the pure-logic tests (`npm test`): finance math and backup
+  validation.
 - **Vercel** hosts the static build and runs deploys (`.vercel/project.json`).
   Because routing is hash-based, no server-side rewrites are needed; the
   production output is a plain static bundle from `npm run build`.

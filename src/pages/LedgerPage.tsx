@@ -4,8 +4,10 @@ import { db, type SupaTable } from "../db/db";
 import type { Entry, ExpenseEntry, IncomeEntry, Person } from "../db/types";
 import { toISO } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
+import { personName } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
+import { useBusy } from "../lib/useBusy";
 import PeriodFilter, { usePeriodFilter } from "../components/PeriodFilter";
 
 type Kind = "expenses" | "income" | "personalExpenses";
@@ -43,6 +45,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   const isIncome = kind === "income";
   const isPersonal = kind === "personalExpenses";
   const online = useOnline();
+  const { busy, run } = useBusy();
 
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const rows = useLiveQuery(
@@ -57,12 +60,12 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
     : config.expenseCategories;
 
   // P1/P2 dropdown options labelled with the configured names.
+  const names = { p1: config?.p1Name ?? "P1", p2: config?.p2Name ?? "P2" };
   const people: { id: Person; name: string }[] = [
-    { id: "P1", name: config?.p1Name ?? "P1" },
-    { id: "P2", name: config?.p2Name ?? "P2" },
+    { id: "P1", name: names.p1 },
+    { id: "P2", name: names.p2 },
   ];
-  const personLabel = (p?: Person) =>
-    p === "P2" ? people[1].name : p === "P1" ? people[0].name : "";
+  const personLabel = (p?: Person) => (p ? personName(p, names) : "");
 
   const [date, setDate] = useState(toISO(new Date()));
   const [value, setValue] = useState("");
@@ -186,7 +189,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                 />
               </td>
               <td className="row-form-actions">
-                <button className="primary" onClick={add} disabled={!online}>Add</button>
+                <button className="primary" onClick={() => run(add)} disabled={!online || busy}>Add</button>
               </td>
             </tr>
           </tbody>

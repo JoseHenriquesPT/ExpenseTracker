@@ -1,6 +1,9 @@
 node_modules
 dist
 *.local
+*.tsbuildinfo
 .DS_Store
 
 .vercel
+
+.claude/skills

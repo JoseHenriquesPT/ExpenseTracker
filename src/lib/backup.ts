@@ -1,4 +1,11 @@
 import { db } from "../db/db";
+import { supabase } from "../db/supabase";
+import { touch } from "../db/live";
+import {
+  BackupValidationError, validateBackup, type BackupData,
+} from "./backupSchema";
+
+const MAX_BACKUP_BYTES = 25 * 1024 * 1024;
 
 /** Dump every table to a JSON file the user can download. */
 export async function exportBackup(): Promise<void> {
@@ -26,25 +33,37 @@ export async function exportBackup(): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-/** Replace all data with the contents of a previously exported backup.
- *  Note: not transactional against the hosted DB — it clears then re-adds. */
-export async function importBackup(file: File): Promise<void> {
+/** Read and validate a backup file. Nothing is written here. */
+export async function parseBackupFile(file: File): Promise<BackupData> {
+  if (file.size > MAX_BACKUP_BYTES) {
+    throw new BackupValidationError("Backup file is larger than 25 MB.");
+  }
   const text = await file.text();
-  const data = JSON.parse(text);
-  await Promise.all([
-    db.expenses.clear(),
-    db.income.clear(),
-    db.personalExpenses.clear(),
-    db.investments.clear(),
-    db.bills.clear(),
-    db.settlements.clear(),
-    db.config.clear(),
-  ]);
-  if (data.expenses?.length) await db.expenses.bulkAdd(data.expenses);
-  if (data.income?.length) await db.income.bulkAdd(data.income);
-  if (data.personalExpenses?.length) await db.personalExpenses.bulkAdd(data.personalExpenses);
-  if (data.investments?.length) await db.investments.bulkAdd(data.investments);
-  if (data.bills?.length) await db.bills.bulkAdd(data.bills);
-  if (data.settlements?.length) await db.settlements.bulkAdd(data.settlements);
-  if (data.config?.length) await db.config.bulkAdd(data.config);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new BackupValidationError("Backup file isn't valid JSON.");
+  }
+  return validateBackup(parsed);
+}
+
+/**
+ * Replace all data with a validated backup. Runs inside the `import_backup`
+ * Postgres function (migration 0005) so it either fully succeeds or leaves the
+ * current data untouched — there is no half-imported state.
+ */
+export async function importBackup(data: BackupData): Promise<void> {
+  const { error } = await supabase.rpc("import_backup", { payload: data });
+  if (!error) {
+    touch();
+    return;
+  }
+  if (error.code === "PGRST202" || /could not find the function/i.test(error.message)) {
+    throw new Error(
+      "The database is missing migration 0005 — run " +
+        "supabase/migrations/0005_import_backup_rpc.sql, then try again."
+    );
+  }
+  throw new Error(error.message);
 }

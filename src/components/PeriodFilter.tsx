@@ -1,16 +1,12 @@
 import { useMemo, useState } from "react";
 import { monthStart, monthEnd, yearStart, yearEnd } from "../lib/finance";
+import { MONTHS, yearOptions } from "../lib/labels";
 
 // Month/year period filter, mirroring the Dashboard's toolbar. Shared by the
 // ledger tabs so their registered-entry lists filter the same way the
 // Dashboard does. "All time" is an extra option the Dashboard doesn't have,
 // so a list can still show every entry.
 export type PeriodMode = "monthly" | "annual" | "all";
-
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
 
 export interface PeriodFilterState {
   mode: PeriodMode;
@@ -42,10 +38,7 @@ export function usePeriodFilter(): PeriodFilterState {
 
 export default function PeriodFilter({ state }: { state: PeriodFilterState }) {
   const { mode, month, year, setMode, setMonth, setYear } = state;
-  const years = useMemo(() => {
-    const base = new Date().getFullYear();
-    return Array.from({ length: 8 }, (_, i) => base - 4 + i);
-  }, []);
+  const years = useMemo(() => yearOptions(), []);
 
   return (
     <div className="toolbar">

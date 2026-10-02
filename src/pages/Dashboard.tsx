@@ -11,13 +11,11 @@ import {
   yearStart, yearEnd, toISO, type CategoryTotal, type Settlement,
 } from "../lib/finance";
 import { fmtMoney } from "../lib/format";
+import { MONTHS, monthName, personName, yearOptions } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
+import { useBusy } from "../lib/useBusy";
 
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
 const PIE_COLORS = [
   "#6c8cff", "#43c59e", "#ffb454", "#ff6b6b", "#b888ff",
   "#4fd1c5", "#f6c177", "#eb6f92", "#9ccfd8", "#c4a7e7",
@@ -67,8 +65,8 @@ export default function Dashboard() {
     const fIncome = isBoth ? income : income.filter((r) => r.person === who);
     const fExpenses = isBoth ? expenses : [];
     const fPersonal = isBoth ? [] : personal.filter((r) => r.person === who);
-    const fBills = bills.filter((r) => (r.scope ?? "Common") === scope);
-    const fInvestments = investments.filter((r) => (r.scope ?? "Common") === scope);
+    const fBills = bills.filter((r) => r.scope === scope);
+    const fInvestments = investments.filter((r) => r.scope === scope);
     return buildOverview(
       {
         income: fIncome, expenses: fExpenses, personalExpenses: fPersonal,
@@ -90,7 +88,7 @@ export default function Dashboard() {
     return buildOverview(
       {
         income: [], expenses, personalExpenses: [], investments: [],
-        bills: bills.filter((r) => (r.scope ?? "Common") === "Common"),
+        bills: bills.filter((r) => r.scope === "Common"),
         incomeCategories: config.incomeCategories,
         expenseCategories: config.expenseCategories,
         billCategories: config.billCategories,
@@ -105,10 +103,7 @@ export default function Dashboard() {
     return computeSettlement({ income, expenses, bills, settlements }, start, end);
   }, [ready, start, end, income, expenses, bills, settlements]);
 
-  const years = useMemo(() => {
-    const base = now.getFullYear();
-    return Array.from({ length: 8 }, (_, i) => base - 4 + i);
-  }, [now]);
+  const years = useMemo(() => yearOptions(), []);
 
   if (!overview || !commonOverview || !settlement || !config)
     return <div className="empty">Loading…</div>;
@@ -244,7 +239,7 @@ export default function Dashboard() {
           end={end}
           online={online}
           settlements={settlements ?? []}
-          periodLabel={mode === "monthly" ? `${MONTHS[month - 1]} ${year}` : `${year}`}
+          periodLabel={mode === "monthly" ? `${monthName(month)} ${year}` : `${year}`}
         />
       )}
 
@@ -306,7 +301,8 @@ function SettlementPanel({
   start: string; end: string; online: boolean;
   settlements: SettlementRecord[]; periodLabel: string;
 }) {
-  const name = (p: "P1" | "P2") => (p === "P1" ? p1 : p2);
+  const { busy, run } = useBusy();
+  const name = (p: "P1" | "P2") => personName(p, { p1, p2 });
   const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 
   // Transfers already recorded for *this* period — used to undo.
@@ -376,12 +372,12 @@ function SettlementPanel({
         </span>
         <div className="settle-actions">
           {s.amount > 0 && (
-            <button className="primary" onClick={settle} disabled={!online}>
+            <button className="primary" onClick={() => run(settle)} disabled={!online || busy}>
               Settle
             </button>
           )}
           {recorded.length > 0 && (
-            <button className="ghost danger" onClick={unsettle} disabled={!online}>
+            <button className="ghost danger" onClick={() => run(unsettle)} disabled={!online || busy}>
               Undo settlement
             </button>
           )}

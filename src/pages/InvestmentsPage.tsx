@@ -4,8 +4,10 @@ import { db } from "../db/db";
 import type { InvestmentAction, Investment, Scope } from "../db/types";
 import { toISO, summarizeInvestments, investmentUnits } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
+import { scopeName } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
+import { useBusy } from "../lib/useBusy";
 import PeriodFilter, { usePeriodFilter } from "../components/PeriodFilter";
 
 const SCOPES: Scope[] = ["Common", "P1", "P2"];
@@ -18,6 +20,7 @@ const num = (n: number) => n.toLocaleString("pt-PT", { maximumFractionDigits: 6 
 
 export default function InvestmentsPage() {
   const online = useOnline();
+  const { busy, run } = useBusy();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const rows = useLiveQuery(
     () => db.investments.orderBy("date").reverse().toArray(),
@@ -25,8 +28,8 @@ export default function InvestmentsPage() {
   );
 
   const names = config?.investmentCategories ?? [];
-  const scopeLabel = (s: Scope) =>
-    s === "P1" ? config?.p1Name ?? "P1" : s === "P2" ? config?.p2Name ?? "P2" : "Common";
+  const personNames = { p1: config?.p1Name ?? "P1", p2: config?.p2Name ?? "P2" };
+  const scopeLabel = (s: Scope) => scopeName(s, personNames);
 
   const [date, setDate] = useState(toISO(new Date()));
   const [action, setAction] = useState<InvestmentAction>("Invested");
@@ -75,8 +78,10 @@ export default function InvestmentsPage() {
       category: name,
       action,
       scope,
-      pricePoint: isFinite(p) ? p : undefined,
-      units: isFinite(u) ? u : undefined,
+      // Only positive quantities are stored: 0/negative would corrupt the
+      // average-cost math on withdrawals.
+      pricePoint: isFinite(p) && p > 0 ? p : undefined,
+      units: isFinite(u) && u > 0 ? u : undefined,
       description,
     });
     setValue("");
@@ -168,6 +173,7 @@ export default function InvestmentsPage() {
             <input
               type="number"
               step="any"
+              min="0"
               placeholder="0.00"
               value={price}
               onChange={(e) => editTrade("price", e.target.value)}
@@ -179,6 +185,7 @@ export default function InvestmentsPage() {
             <input
               type="number"
               step="any"
+              min="0"
               placeholder="0"
               value={units}
               onChange={(e) => editTrade("units", e.target.value)}
@@ -207,7 +214,7 @@ export default function InvestmentsPage() {
         </div>
 
         <div className="toolbar" style={{ marginTop: 12, marginBottom: 0 }}>
-          <button className="primary" onClick={add} disabled={!online}>Add</button>
+          <button className="primary" onClick={() => run(add)} disabled={!online || busy}>Add</button>
           <span className="subtitle" style={{ margin: 0 }}>
             Enter any two of unit price / units / value — the third fills in.
           </span>
@@ -221,6 +228,7 @@ export default function InvestmentsPage() {
           <thead>
             <tr>
               <th>Name</th>
+              <th>Scope</th>
               <th className="num">Units held</th>
               <th className="num">Avg cost</th>
               <th className="num">Invested</th>
@@ -230,8 +238,9 @@ export default function InvestmentsPage() {
           </thead>
           <tbody>
             {active.map((h) => (
-              <tr key={h.name}>
+              <tr key={`${h.scope}-${h.name}`}>
                 <td data-label="Name">{h.name}</td>
+                <td data-label="Scope"><span className="pill">{scopeLabel(h.scope)}</span></td>
                 <td className="num" data-label="Units held">{num(h.units)}</td>
                 <td className="num" data-label="Avg cost">
                   {h.units > 0 ? fmtMoney(h.avgCost) : "—"}

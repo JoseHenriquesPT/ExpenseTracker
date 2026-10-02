@@ -42,7 +42,7 @@ export default function App() {
       <main className="content">
         {!online && (
           <div className="offline-banner" role="status">
-            ⚠ You’re offline — viewing only. Changes can’t be saved until you reconnect.
+            ⚠ You’re offline — data can’t be loaded and changes can’t be saved until you reconnect.
           </div>
         )}
         <Outlet />

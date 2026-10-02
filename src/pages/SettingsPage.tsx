@@ -3,7 +3,11 @@ import { useLiveQuery } from "../db/live";
 import { db, ensureConfig } from "../db/db";
 import { supabase } from "../db/supabase";
 import type { Config } from "../db/types";
-import { exportBackup, importBackup } from "../lib/backup";
+import { exportBackup, importBackup, parseBackupFile } from "../lib/backup";
+import { describeBackup } from "../lib/backupSchema";
+import { confirm } from "../lib/confirm";
+import { pushToast } from "../lib/toast";
+import { useBusy } from "../lib/useBusy";
 import { useOnline } from "../lib/useOnline";
 
 type ListKey = Extract<
@@ -24,6 +28,8 @@ export default function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState("");
   const [email, setEmail] = useState("");
+  const { busy: importing, run: runImport } = useBusy();
+  const { busy: savingNames, run: runSaveNames } = useBusy();
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ""));
   }, []);
@@ -67,11 +73,27 @@ export default function SettingsPage() {
   async function onImport(file?: File) {
     if (!file) return;
     try {
-      await importBackup(file);
+      // Validate first so a wrong file can't wipe anything, then ask.
+      const data = await parseBackupFile(file);
+      const ok = await confirm({
+        title: "Replace all data",
+        message:
+          `This replaces every current row with the backup (${describeBackup(data)}). ` +
+          "This can't be undone.",
+        confirmLabel: "Replace everything",
+        danger: true,
+      });
+      if (!ok) return;
+      await importBackup(data);
       await ensureConfig();
       setStatus("Backup imported ✓");
     } catch (e) {
-      setStatus("Import failed: " + (e as Error).message);
+      const message = e instanceof Error ? e.message : String(e);
+      pushToast(message, "error");
+      setStatus("Import failed");
+    } finally {
+      // Allow re-selecting the same file next time.
+      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
@@ -117,7 +139,11 @@ export default function SettingsPage() {
           </div>
         </div>
         <div className="toolbar" style={{ marginTop: 12, marginBottom: 0 }}>
-          <button className="primary" onClick={saveNames} disabled={!online || !namesDirty}>
+          <button
+            className="primary"
+            onClick={() => runSaveNames(saveNames)}
+            disabled={!online || !namesDirty || savingNames}
+          >
             Save
           </button>
           {namesDirty && (
@@ -129,19 +155,24 @@ export default function SettingsPage() {
       <div className="panel" style={{ marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>Backup</h3>
         <div className="toolbar" style={{ marginBottom: 0 }}>
-          <button className="primary" onClick={() => exportBackup()}>Export JSON</button>
-          <button onClick={() => fileRef.current?.click()} disabled={!online}>Import JSON</button>
+          <button className="primary" onClick={() => exportBackup()} disabled={importing}>
+            Export JSON
+          </button>
+          <button onClick={() => fileRef.current?.click()} disabled={!online || importing}>
+            {importing ? "Importing…" : "Import JSON"}
+          </button>
           <input
             ref={fileRef}
             type="file"
             accept="application/json"
             style={{ display: "none" }}
-            onChange={(e) => onImport(e.target.files?.[0])}
+            onChange={(e) => runImport(() => onImport(e.target.files?.[0]))}
           />
           {status && <span className="subtitle" style={{ margin: 0 }}>{status}</span>}
         </div>
         <p className="subtitle" style={{ marginBottom: 0 }}>
-          Import replaces all current data. Export regularly — everything lives only in this browser.
+          Import replaces all current data in the shared database, after validating the
+          file and asking for confirmation. Export a copy regularly.
         </p>
       </div>
 

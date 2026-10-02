@@ -78,13 +78,14 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   const [date, setDate] = useState(toISO(new Date()));
   const [value, setValue] = useState("");
   const [category, setCategory] = useState("");
-  const [person, setPerson] = useState<Person>("P1");
+  const [person, setPerson] = useState<Person | null>(null);
   const [description, setDescription] = useState("");
 
   async function add() {
     const num = parseFloat(value);
     if (!date || isNaN(num)) return;
     if (isExpense) {
+      if (!person) return;
       if (isSavings) {
         await db.expenses.add({
           date, value: num, category: SAVINGS_CATEGORY, paidBy: person, description, saved: true,
@@ -94,6 +95,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
         await db.expenses.add({ date, value: num, category, paidBy: person, description });
       }
     } else if (isPersonal) {
+      if (!person) return;
       if (isSavings) {
         await db.personalExpenses.add({
           date, value: num, category: SAVINGS_CATEGORY, person, description, saved: true,
@@ -104,7 +106,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
       }
     } else {
       if (!category) return;
-      await db.income.add({ date, value: num, category, person, description });
+      await db.income.add({ date, value: num, category, person: person ?? "P1", description });
     }
     setValue("");
     setDescription("");
@@ -243,11 +245,30 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                 )}
               </td>
               <td data-label={personColTitle}>
-                <select value={person} onChange={(e) => setPerson(e.target.value as Person)}>
-                  {people.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+                {isIncome ? (
+                  <select
+                    value={person ?? "P1"}
+                    onChange={(e) => setPerson(e.target.value as Person)}
+                  >
+                    {people.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="radio-row">
+                    {people.map((p) => (
+                      <label key={p.id} className="radio">
+                        <input
+                          type="radio"
+                          name={`person-${kind}`}
+                          checked={person === p.id}
+                          onChange={() => setPerson(p.id)}
+                        />
+                        {p.name}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </td>
               <td data-label="Description">
                 <input

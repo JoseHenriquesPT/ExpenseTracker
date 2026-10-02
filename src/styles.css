@@ -35,38 +35,20 @@ h2 { margin: 0 0 4px; }
   margin-bottom: 10px;
 }
 .back-home:hover { color: var(--text); }
-.home-head { margin-bottom: 8px; }
-.home-brand { margin: 0 0 4px; font-size: 26px; letter-spacing: -0.02em; }
-.home-group { margin-top: 22px; }
-.home-group-title {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  color: var(--muted);
-  margin: 0 0 8px;
-}
-.home-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
-}
-.home-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: var(--panel);
+.home-head { margin-bottom: 12px; }
+.home-brand { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
+.home-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+.home-link {
+  display: inline-block;
+  padding: 7px 12px;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px 16px;
-  text-decoration: none;
+  border-radius: 8px;
+  background: var(--panel);
   color: var(--text);
-  transition: border-color .12s ease, transform .12s ease;
+  text-decoration: none;
+  font-size: 13px;
 }
-.home-card:hover { border-color: var(--accent); transform: translateY(-1px); }
-.home-card.featured { border-left: 3px solid var(--accent); }
-.home-card-title { font-weight: 600; font-size: 15px; }
-.home-card-desc { color: var(--muted); font-size: 13px; line-height: 1.4; }
-.home-foot { color: var(--muted); font-size: 12px; margin: 28px 0 0; }
+.home-link:hover { border-color: var(--accent); }
 
 .toolbar {
   display: flex;
@@ -152,6 +134,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   margin-bottom: 10px;
 }
 .form-head h3 { margin: 0; }
+.radio-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.radio { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.radio input { accent-color: var(--accent); margin: 0; }
 
 /* ---- Planned expenses ---- */
 .plan-grid {
@@ -279,8 +264,6 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 @media (max-width: 768px) {
   .content { padding: 16px 14px 40px; }
   .offline-banner { position: static; }
-
-  .home-grid { grid-template-columns: 1fr; }
 
   /* Collapse the multi-column grids so cards/charts don't overlap. */
   .cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }

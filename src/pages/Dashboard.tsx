@@ -16,7 +16,6 @@ import { MONTHS, monthName, personName, yearOptions } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
-import BackHome from "../components/BackHome";
 
 const PIE_COLORS = [
   "#6c8cff", "#43c59e", "#ffb454", "#ff6b6b", "#b888ff",
@@ -159,8 +158,6 @@ export default function Dashboard() {
 
   return (
     <div>
-      <BackHome />
-      <h2>Dashboard</h2>
       <div className="toolbar">
         <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
           <option value="monthly">Monthly</option>

@@ -4,7 +4,6 @@ import { createHashRouter, Navigate, RouterProvider } from "react-router-dom";
 import AuthGate from "./auth/AuthGate";
 import App from "./App";
 import HomePage from "./pages/HomePage";
-import Dashboard from "./pages/Dashboard";
 import LedgerPage from "./pages/LedgerPage";
 import HistoryPage from "./pages/HistoryPage";
 import InvestmentsPage from "./pages/InvestmentsPage";
@@ -20,7 +19,8 @@ const router = createHashRouter([
     element: <App />,
     children: [
       { index: true, element: <HomePage /> },
-      { path: "dashboard", element: <Dashboard /> },
+      // The Dashboard now lives on the Home page; keep the old URL working.
+      { path: "dashboard", element: <Navigate to="/" replace /> },
       { path: "expenses", element: <LedgerPage tabs={["expenses", "personalExpenses"]} /> },
       // Old standalone route — Individual now lives as a subtab under Expenses.
       { path: "personal", element: <Navigate to="/expenses" replace /> },

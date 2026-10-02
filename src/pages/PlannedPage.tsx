@@ -9,6 +9,7 @@ import { purchaseEntry, purchasedPlanPatch } from "../lib/planned";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
+import BackHome from "../components/BackHome";
 
 const EMPTY_LINK: PlannedLink = { text: "", url: "" };
 
@@ -46,6 +47,7 @@ export default function PlannedPage() {
 
   return (
     <div>
+      <BackHome />
       <h2>Planned Expenses</h2>
       <p className="subtitle">
         Things you plan to buy. Add links for ideas, then press <strong>Purchased</strong> when

@@ -9,6 +9,7 @@ import { confirm } from "../lib/confirm";
 import { pushToast } from "../lib/toast";
 import { useBusy } from "../lib/useBusy";
 import { useOnline } from "../lib/useOnline";
+import BackHome from "../components/BackHome";
 
 type ListKey = Extract<
   keyof Config,
@@ -101,6 +102,7 @@ export default function SettingsPage() {
 
   return (
     <div>
+      <BackHome />
       <h2>Settings</h2>
       <p className="subtitle">Edit people, categories and back up your data.</p>
 

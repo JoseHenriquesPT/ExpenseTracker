@@ -9,6 +9,7 @@ import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
 import PeriodFilter, { usePeriodFilter } from "../components/PeriodFilter";
+import BackHome from "../components/BackHome";
 
 const SCOPES: BillScope[] = ["P1", "P2", "Common"];
 
@@ -79,6 +80,7 @@ export default function BillsPage() {
 
   return (
     <div>
+      <BackHome />
       <h2>Bills</h2>
       <p className="subtitle">
         Registering a bill counts it as paid. Bills tagged <strong>Common</strong> are

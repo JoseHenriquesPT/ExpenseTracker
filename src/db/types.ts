@@ -21,9 +21,13 @@ export interface Entry {
   description?: string;
 }
 
-/** Common Expenses sheet — shared cost, but fronted out-of-pocket by one person. */
+/** Common Expenses sheet — shared cost, but fronted out-of-pocket by one person.
+ *  `saved` marks money moved into investments instead of spent: it registers
+ *  like an expense but is reported under the Savings category and is NOT part
+ *  of the settlement pool. */
 export interface ExpenseEntry extends Entry {
   paidBy: Person;
+  saved?: boolean;
 }
 
 /** Income sheet — attributed to one person (fixes their fair-share %). */
@@ -33,9 +37,11 @@ export interface IncomeEntry extends Entry {
 
 /** Individual Expenses — personal spending attributed to one person.
  *  Unlike Common Expenses these are NOT split, so they never enter the
- *  settlement; they only reduce that person's "saved" on the Dashboard. */
+ *  settlement; they only reduce that person's "saved" on the Dashboard.
+ *  `saved` marks money moved into investments instead of spent. */
 export interface PersonalExpenseEntry extends Entry {
   person: Person;
+  saved?: boolean;
 }
 
 /** Investments sheet. `category` holds the investment's NAME (e.g. a ticker or

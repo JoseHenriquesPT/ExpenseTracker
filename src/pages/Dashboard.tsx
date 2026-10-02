@@ -1,20 +1,22 @@
 import { useMemo, useState } from "react";
-import { useLiveQuery } from "../db/live";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Legend, CartesianGrid,
 } from "recharts";
+import { useLiveQuery } from "../db/live";
 import { db } from "../db/db";
 import type { Scope, Person, SettlementRecord } from "../db/types";
 import {
-  buildOverview, commonShareFor, computeSettlement, monthStart, monthEnd,
-  yearStart, yearEnd, toISO, type CategoryTotal, type Settlement,
+  buildIncomeSplits, buildOverview, commonShareFor, computeSettlement,
+  monthStart, monthEnd, yearStart, yearEnd, toISO,
+  type CategoryTotal, type IncomeSplit, type Settlement,
 } from "../lib/finance";
 import { fmtMoney } from "../lib/format";
 import { MONTHS, monthName, personName, yearOptions } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
+import BackHome from "../components/BackHome";
 
 const PIE_COLORS = [
   "#6c8cff", "#43c59e", "#ffb454", "#ff6b6b", "#b888ff",
@@ -36,12 +38,10 @@ export default function Dashboard() {
   const income = useLiveQuery(() => db.income.toArray(), []);
   const expenses = useLiveQuery(() => db.expenses.toArray(), []);
   const personal = useLiveQuery(() => db.personalExpenses.toArray(), []);
-  const investments = useLiveQuery(() => db.investments.toArray(), []);
   const bills = useLiveQuery(() => db.bills.toArray(), []);
   const settlements = useLiveQuery(() => db.settlements.toArray(), []);
 
-  const ready =
-    config && income && expenses && personal && investments && bills && settlements;
+  const ready = config && income && expenses && personal && bills && settlements;
 
   const [start, end] = useMemo(
     () =>
@@ -54,49 +54,51 @@ export default function Dashboard() {
   const overview = useMemo(() => {
     if (!ready) return null;
     // "Both" is the shared/common household view; each person's tab shows only
-    // that person's individual items. So:
-    //   - income is filtered to the person on their tab,
-    //   - common expenses only appear on Both; individual expenses only on tabs,
-    //   - bills AND investments are split by SCOPE (Common on Both, that
-    //     person's own on their tab) — bills not by who fronted them — so
-    //     common items never leak into an individual tab.
+    // that person's individual items. Common expenses and common savings only
+    // appear on Both; individual ones only on a person's tab.
     const isBoth = who === "Both";
     const scope: Scope = isBoth ? "Common" : who;
     const fIncome = isBoth ? income : income.filter((r) => r.person === who);
     const fExpenses = isBoth ? expenses : [];
     const fPersonal = isBoth ? [] : personal.filter((r) => r.person === who);
     const fBills = bills.filter((r) => r.scope === scope);
-    const fInvestments = investments.filter((r) => r.scope === scope);
     return buildOverview(
       {
         income: fIncome, expenses: fExpenses, personalExpenses: fPersonal,
-        bills: fBills, investments: fInvestments,
+        bills: fBills,
         incomeCategories: config.incomeCategories,
         expenseCategories: config.expenseCategories,
         billCategories: config.billCategories,
-        investmentCategories: config.investmentCategories,
       },
       start, end
     );
-  }, [ready, who, start, end, config, income, expenses, personal, investments, bills]);
+  }, [ready, who, start, end, config, income, expenses, personal, bills]);
 
   // The common pool broken down by category. Needed on an individual tab too,
-  // where each person is charged their share of it, so it's computed from the
-  // unfiltered data rather than from `overview`.
+  // where each person is charged their share of it.
   const commonOverview = useMemo(() => {
     if (!ready) return null;
     return buildOverview(
       {
-        income: [], expenses, personalExpenses: [], investments: [],
+        income: [], expenses, personalExpenses: [],
         bills: bills.filter((r) => r.scope === "Common"),
         incomeCategories: config.incomeCategories,
         expenseCategories: config.expenseCategories,
         billCategories: config.billCategories,
-        investmentCategories: config.investmentCategories,
       },
       start, end
     );
   }, [ready, start, end, config, expenses, bills]);
+
+  // Per-person income split for the two pies: fair share of all spending,
+  // invested (savings) and what's left over.
+  const splits = useMemo(() => {
+    if (!ready) return null;
+    return buildIncomeSplits(
+      { income, expenses, personalExpenses: personal, bills },
+      start, end
+    );
+  }, [ready, start, end, income, expenses, personal, bills]);
 
   const settlement = useMemo(() => {
     if (!ready) return null;
@@ -105,7 +107,7 @@ export default function Dashboard() {
 
   const years = useMemo(() => yearOptions(), []);
 
-  if (!overview || !commonOverview || !settlement || !config)
+  if (!overview || !commonOverview || !splits || !settlement || !config)
     return <div className="empty">Loading…</div>;
 
   const p1 = config.p1Name;
@@ -122,7 +124,8 @@ export default function Dashboard() {
         commonOverview.bills,
         who === "P1" ? settlement.shareP1 : settlement.shareP2
       );
-  const totalSaved = overview.totalSaved - (commonShare?.total ?? 0);
+  const personSplit = isBoth ? null : who === "P1" ? splits.p1 : splits.p2;
+  const totalSaved = isBoth ? overview.totalSaved : personSplit!.saved;
 
   const totalsBar = [
     { name: "Income", value: overview.totalIncome },
@@ -132,44 +135,31 @@ export default function Dashboard() {
     },
     { name: isBoth ? "Common Bills" : "Individual Bills", value: overview.totalBills },
     ...(commonShare ? [{ name: "Common Share", value: commonShare.total }] : []),
-    { name: "Investments", value: overview.totalInvestments },
+    {
+      name: "Invested",
+      value: isBoth ? overview.totalSavings : personSplit!.invested,
+    },
     { name: "Saved", value: totalSaved },
   ];
 
-  // All money spent, merged by category across the spending sources in scope for
-  // this tab (Both: common expenses + common bills; a person: their individual
-  // expenses + their individual bills + their share of the common categories).
-  // Same category from different sources collapses into a single slice.
+  // All money spent, merged by category across the spending sources in scope
+  // for this tab. Savings entries keep their "Savings" category, so they get a
+  // slice of their own. Common spending is deliberately absent from a person's
+  // tab — the shared pies live on Both.
   const spendingByCategory: CategoryTotal[] = (() => {
     const m = new Map<string, number>();
     const sources = isBoth
-      ? [...overview.expenses, ...overview.bills]
-      : [...overview.personal, ...overview.bills, ...commonShare!.byCategory];
+      ? [...overview.expenses, ...overview.bills, ...overview.savings]
+      : [...overview.personal, ...overview.bills, ...overview.savings];
     for (const ct of sources) {
       m.set(ct.category, (m.get(ct.category) ?? 0) + ct.value);
     }
     return [...m].map(([category, value]) => ({ category, value }));
   })();
 
-  // Where the income went: each outflow bucket in scope plus what's left as savings.
-  const moneyDistribution: CategoryTotal[] = isBoth
-    ? [
-        { category: "Common Expenses", value: overview.totalExpenses },
-        { category: "Common Bills", value: overview.totalBills },
-        { category: "Investments", value: overview.totalInvestments },
-        { category: "Saved", value: totalSaved },
-      ]
-    : [
-        { category: "Individual Expenses", value: overview.totalPersonal },
-        { category: "Individual Bills", value: overview.totalBills },
-        { category: "Share of Common Expenses", value: commonShare!.expenses },
-        { category: "Share of Common Bills", value: commonShare!.bills },
-        { category: "Investments", value: overview.totalInvestments },
-        { category: "Saved", value: totalSaved },
-      ];
-
   return (
     <div>
+      <BackHome />
       <h2>Dashboard</h2>
       <div className="toolbar">
         <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
@@ -203,7 +193,7 @@ export default function Dashboard() {
       {!isBoth && commonShare && (
         <p className="subtitle" style={{ marginTop: -8 }}>
           Showing <strong>{who === "P1" ? p1 : p2}</strong>: their income, their individual
-          expenses, individual bills, and individual investments, plus their{" "}
+          expenses and individual bills, plus their{" "}
           <strong>{(commonShare.share * 100).toFixed(1)}%</strong> share of the household’s
           common expenses and bills
           {settlement.usedFallbackShare
@@ -225,7 +215,6 @@ export default function Dashboard() {
         {commonShare && (
           <Card label="Share of Common" value={commonShare.total} tone="neg" />
         )}
-        <Card label="Total Investments" value={overview.totalInvestments} />
         <Card label="Total Saved" value={totalSaved}
               tone={totalSaved >= 0 ? "pos" : "neg"} />
       </div>
@@ -243,33 +232,25 @@ export default function Dashboard() {
         />
       )}
 
+      {/* The two headline pies: each person's income split into their fair
+          share of expenses, what they invested and what they saved. */}
+      {isBoth && (
+        <div className="charts" style={{ marginBottom: 16 }}>
+          <PersonPie title={`${p1} — income split`} split={splits.p1} />
+          <PersonPie title={`${p2} — income split`} split={splits.p2} />
+        </div>
+      )}
+
       <div className="charts">
         <PieCard title="Income by category" data={overview.income} />
-        {isBoth ? (
-          <PieCard title="Common expenses by category" data={overview.expenses} />
-        ) : (
+        {!isBoth && (
           <PieCard title="Individual expenses by category" data={overview.personal} />
         )}
         <PieCard
           title={isBoth ? "Common Bills by category" : "Individual Bills by category"}
           data={overview.bills}
         />
-        {commonShare && (
-          <PieCard
-            title="Share of common by category"
-            data={commonShare.byCategory}
-          />
-        )}
-        <PieCard title="Investments by name" data={overview.investments} />
-        <PieCard
-          title={
-            isBoth
-              ? "Total common spending by category"
-              : "Total spending by category (incl. share of common)"
-          }
-          data={spendingByCategory}
-        />
-        <PieCard title="Total money distribution" data={moneyDistribution} />
+        <PieCard title="Spending by category" data={spendingByCategory} />
       </div>
 
       <div className="chart-card panel" style={{ marginTop: 16 }}>
@@ -417,8 +398,9 @@ function SettlementPanel({
         </tbody>
       </table>
       <p className="subtitle" style={{ marginTop: 8, marginBottom: 0 }}>
-        Pool = common expenses + bills tagged “Common”. Fair share = income % × pool.
-        A positive balance means that person overpaid and is owed.
+        Pool = common expenses + bills tagged “Common”. Savings into investments
+        are not pooled. Fair share = income % × pool. A positive balance means
+        that person overpaid and is owed.
       </p>
     </div>
   );
@@ -453,7 +435,27 @@ function Card({ label, value, tone }: { label: string; value: number; tone?: "po
   );
 }
 
-function PieCard({ title, data }: { title: string; data: CategoryTotal[] }) {
+/** One person's income split: expenses / invested / saved. */
+function PersonPie({ title, split }: { title: string; split: IncomeSplit }) {
+  const data: CategoryTotal[] = [
+    { category: "Expenses", value: Math.max(0, split.expenses) },
+    { category: "Invested", value: Math.max(0, split.invested) },
+    { category: "Saved", value: Math.max(0, split.saved) },
+  ];
+  const note =
+    split.saved < 0
+      ? `Overspent by ${fmtMoney(-split.saved)} this period.`
+      : split.income === 0
+      ? "No income recorded for this person."
+      : undefined;
+  return <PieCard title={title} data={data} note={note} />;
+}
+
+function PieCard({
+  title, data, note,
+}: {
+  title: string; data: CategoryTotal[]; note?: string;
+}) {
   // Charts ignore zero/negative slices (matches the overview hiding blanks).
   const slices = data.filter((d) => d.value > 0);
   return (
@@ -490,6 +492,9 @@ function PieCard({ title, data }: { title: string; data: CategoryTotal[] }) {
             />
           </PieChart>
         </ResponsiveContainer>
+      )}
+      {note && (
+        <p className="subtitle" style={{ marginTop: 8, marginBottom: 0 }}>{note}</p>
       )}
     </div>
   );

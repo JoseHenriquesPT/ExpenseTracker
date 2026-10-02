@@ -164,7 +164,12 @@ export function validateBackup(input: unknown): BackupData {
 
   const expenses = tableRows(input, "expenses").map((row, i) => {
     const where = `expenses[${i}]`;
-    return { ...entryFields(row, where), paidBy: enumField(row, "paidBy", PEOPLE, where) as Person };
+    const saved = boolField(row, "saved", where);
+    return {
+      ...entryFields(row, where),
+      paidBy: enumField(row, "paidBy", PEOPLE, where) as Person,
+      ...(saved ? { saved: true } : {}),
+    };
   });
 
   const income = tableRows(input, "income").map((row, i) => {
@@ -174,7 +179,12 @@ export function validateBackup(input: unknown): BackupData {
 
   const personalExpenses = tableRows(input, "personalExpenses").map((row, i) => {
     const where = `personalExpenses[${i}]`;
-    return { ...entryFields(row, where), person: enumField(row, "person", PEOPLE, where) as Person };
+    const saved = boolField(row, "saved", where);
+    return {
+      ...entryFields(row, where),
+      person: enumField(row, "person", PEOPLE, where) as Person,
+      ...(saved ? { saved: true } : {}),
+    };
   });
 
   const investments = tableRows(input, "investments").map((row, i) => {

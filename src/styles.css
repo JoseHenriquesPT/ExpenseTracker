@@ -19,34 +19,54 @@ body {
   font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
 
-.app { display: flex; min-height: 100vh; }
+.app { min-height: 100vh; }
 
-.sidebar {
-  width: 220px;
-  background: var(--panel);
-  border-right: 1px solid var(--border);
-  padding: 20px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.brand { font-size: 16px; margin: 0 0 16px; }
-.sidebar nav { display: flex; flex-direction: column; gap: 4px; }
-.nav {
-  display: block;
-  padding: 9px 12px;
-  border-radius: 8px;
-  color: var(--muted);
-  text-decoration: none;
-}
-.nav:hover { background: var(--panel-2); color: var(--text); }
-.nav.active { background: var(--accent); color: #fff; }
-.sidebar-foot { margin-top: auto; color: var(--muted); font-size: 11px; }
-
-.content { flex: 1; padding: 24px 28px; overflow: auto; }
+.content { max-width: 1100px; margin: 0 auto; padding: 24px 28px 48px; }
 
 h2 { margin: 0 0 4px; }
 .subtitle { color: var(--muted); margin: 0 0 20px; }
+
+/* ---- Home hub ---- */
+.back-home {
+  display: inline-block;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.back-home:hover { color: var(--text); }
+.home-head { margin-bottom: 8px; }
+.home-brand { margin: 0 0 4px; font-size: 26px; letter-spacing: -0.02em; }
+.home-group { margin-top: 22px; }
+.home-group-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.home-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color .12s ease, transform .12s ease;
+}
+.home-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.home-card.featured { border-left: 3px solid var(--accent); }
+.home-card-title { font-weight: 600; font-size: 15px; }
+.home-card-desc { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.home-foot { color: var(--muted); font-size: 12px; margin: 28px 0 0; }
 
 .toolbar {
   display: flex;
@@ -108,6 +128,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .pos { color: var(--green); }
 .neg { color: var(--red); }
 .pill { padding: 2px 8px; border-radius: 999px; font-size: 11px; border: 1px solid var(--border); }
+.pill.savings { color: var(--green); border-color: var(--green); }
+.link-more { color: var(--accent); text-decoration: none; font-size: 13px; }
+.link-more:hover { text-decoration: underline; }
 .tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .tag { display: inline-flex; gap: 6px; align-items: center; background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; }
 .tag button { padding: 0 4px; background: transparent; border: none; color: var(--muted); }
@@ -120,6 +143,15 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .field-row { display: flex; gap: 16px; flex-wrap: wrap; }
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field label { color: var(--muted); font-size: 12px; }
+.form-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.form-head h3 { margin: 0; }
 
 /* ---- Planned expenses ---- */
 .plan-grid {
@@ -161,6 +193,18 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .segmented .seg + .seg { border-left: 1px solid var(--border); }
 .segmented .seg:hover { color: var(--text); }
 .segmented .seg.active { background: var(--accent); color: #fff; }
+
+/* ---- History ---- */
+.history-month { margin-bottom: 20px; }
+.history-month-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 2px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.history-month-head h3 { margin: 0; font-size: 15px; }
+.history-month-total { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 
 .offline-banner {
   position: sticky;
@@ -233,42 +277,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---- Mobile / narrow screens ---- */
 @media (max-width: 768px) {
-  /* Stack the layout: sidebar becomes a top bar instead of a 220px column. */
-  .app { flex-direction: column; min-height: 100dvh; }
-
-  .sidebar {
-    width: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    padding: 10px 12px;
-    flex-flow: row wrap;
-    align-items: center;
-    gap: 8px;
-    position: sticky;
-    top: 0;
-    z-index: 60;
-  }
-  .brand { order: 1; flex: 1 1 auto; margin: 0; font-size: 15px; }
-  .sidebar-foot { order: 2; margin-top: 0; }
-  /* Email would overflow the top row — drop it on mobile, keep Sign out. */
-  .sidebar-foot .subtitle { display: none; }
-
-  /* Nav drops to its own full-width row and scrolls horizontally. */
-  .sidebar nav {
-    order: 3;
-    flex: 1 1 100%;
-    flex-direction: row;
-    overflow-x: auto;
-    gap: 6px;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .sidebar nav::-webkit-scrollbar { display: none; }
-  .nav { flex: 0 0 auto; white-space: nowrap; padding: 8px 12px; }
-
-  .content { padding: 16px 14px; overflow: visible; }
+  .content { padding: 16px 14px 40px; }
   .offline-banner { position: static; }
+
+  .home-grid { grid-template-columns: 1fr; }
 
   /* Collapse the multi-column grids so cards/charts don't overlap. */
   .cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }

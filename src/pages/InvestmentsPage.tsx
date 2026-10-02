@@ -9,6 +9,7 @@ import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
 import PeriodFilter, { usePeriodFilter } from "../components/PeriodFilter";
+import BackHome from "../components/BackHome";
 
 const SCOPES: Scope[] = ["Common", "P1", "P2"];
 type TradeField = "value" | "price" | "units";
@@ -123,10 +124,11 @@ export default function InvestmentsPage() {
 
   return (
     <div>
-      <h2>Investments</h2>
+      <BackHome />
+      <h2>Investments (archived)</h2>
       <p className="subtitle">
-        Track each trade by name. Invested rows add to the holding; Withdraw rows
-        sell from it and book profit against your average cost.
+        This tab is archived — new money moved into investments is registered as
+        “Saved into investments” under Expenses &amp; Savings. Existing rows remain here.
       </p>
 
       {/* ---------------- Add a transaction ---------------- */}

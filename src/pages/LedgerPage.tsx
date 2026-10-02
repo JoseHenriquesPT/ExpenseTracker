@@ -1,16 +1,19 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useLiveQuery } from "../db/live";
 import { db, type SupaTable } from "../db/db";
 import type { Entry, ExpenseEntry, IncomeEntry, Person } from "../db/types";
-import { toISO } from "../lib/finance";
+import { monthEnd, monthStart, SAVINGS_CATEGORY, toISO } from "../lib/finance";
+import { monthName, personName } from "../lib/labels";
 import { fmtMoney, fmtDate } from "../lib/format";
-import { personName } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
 import PeriodFilter, { usePeriodFilter } from "../components/PeriodFilter";
+import BackHome from "../components/BackHome";
 
 type Kind = "expenses" | "income" | "personalExpenses";
+type EntryMode = "expense" | "savings";
 
 const TITLES: Record<Kind, string> = {
   expenses: "Common Expenses",
@@ -26,24 +29,29 @@ const SUBTAB_LABELS: Record<Kind, string> = {
 };
 
 const NOTES: Record<Kind, string> = {
-  expenses: "Shared cost — settled monthly on the Dashboard.",
+  expenses:
+    "Shared cost — settled monthly on the Dashboard. “Saved into investments” is money moved to investments, not spending.",
   income: "Attributed to a person — sets their settlement share.",
-  personalExpenses: "Personal spending — not shared, not settled.",
+  personalExpenses:
+    "Personal spending — not shared, not settled. “Saved into investments” is money moved to investments, not spending.",
 };
 
 type Row = Entry &
-  Partial<Pick<ExpenseEntry, "paidBy">> &
+  Partial<Pick<ExpenseEntry, "paidBy" | "saved">> &
   Partial<Pick<IncomeEntry, "person">>;
 
 export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   // The active subtab drives everything; defaults to the first tab (Common for
   // the merged Expenses page). A single-tab page just hides the switcher.
   const [kind, setKind] = useState<Kind>(tabs[0]);
-  const pageTitle = tabs.length > 1 ? "Expenses" : TITLES[kind];
+  const [entryMode, setEntryMode] = useState<EntryMode>("expense");
+  const pageTitle = tabs.length > 1 ? "Expenses & Savings" : TITLES[kind];
 
   const isExpense = kind === "expenses";
   const isIncome = kind === "income";
   const isPersonal = kind === "personalExpenses";
+  const canSave = isExpense || isPersonal;
+  const isSavings = canSave && entryMode === "savings";
   const online = useOnline();
   const { busy, run } = useBusy();
 
@@ -75,12 +83,27 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
 
   async function add() {
     const num = parseFloat(value);
-    if (!date || isNaN(num) || !category) return;
+    if (!date || isNaN(num)) return;
     if (isExpense) {
-      await db.expenses.add({ date, value: num, category, paidBy: person, description });
+      if (isSavings) {
+        await db.expenses.add({
+          date, value: num, category: SAVINGS_CATEGORY, paidBy: person, description, saved: true,
+        });
+      } else {
+        if (!category) return;
+        await db.expenses.add({ date, value: num, category, paidBy: person, description });
+      }
     } else if (isPersonal) {
-      await db.personalExpenses.add({ date, value: num, category, person, description });
+      if (isSavings) {
+        await db.personalExpenses.add({
+          date, value: num, category: SAVINGS_CATEGORY, person, description, saved: true,
+        });
+      } else {
+        if (!category) return;
+        await db.personalExpenses.add({ date, value: num, category, person, description });
+      }
     } else {
+      if (!category) return;
       await db.income.add({ date, value: num, category, person, description });
     }
     setValue("");
@@ -89,9 +112,10 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
 
   async function remove(r: Row) {
     if (r.id == null) return;
+    const label = r.saved ? `Savings — ${fmtMoney(r.value)}` : `${r.category} — ${fmtMoney(r.value)}`;
     const ok = await confirm({
       title: "Delete entry",
-      message: `Remove ${r.category} — ${fmtMoney(r.value)}${
+      message: `Remove ${label}${
         r.description ? ` (${r.description})` : ""
       }? This can't be undone.`,
       confirmLabel: "Delete",
@@ -110,6 +134,26 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   }, [rows, filter.window]);
 
   const total = filtered.reduce((acc, r) => acc + r.value, 0);
+
+  // Expenses/Savings show a short "latest this month" list; the History page
+  // is where the full record lives.
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  const monthWindow: [string, string] = [
+    monthStart(currentYear, currentMonth),
+    monthEnd(currentYear, currentMonth),
+  ];
+  const recent = useMemo(() => {
+    if (!canSave) return [];
+    const [start, end] = monthWindow;
+    return (rows ?? [])
+      .filter((r) => r.date >= start && r.date <= end)
+      .sort((a, b) =>
+        a.date !== b.date ? (a.date < b.date ? 1 : -1) : (b.id ?? 0) - (a.id ?? 0)
+      )
+      .slice(0, 5);
+  }, [rows, canSave, monthWindow[0], monthWindow[1]]);
 
   // Income, Common Expenses and Individual Expenses all attribute to a person.
   const personColTitle = isExpense ? "Paid by" : "Person";
@@ -130,6 +174,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
 
   return (
     <div>
+      <BackHome />
       <h2>{pageTitle}</h2>
       {tabs.length > 1 && (
         <div className="segmented" style={{ marginBottom: 12 }}>
@@ -137,7 +182,10 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
             <button
               key={t}
               className={kind === t ? "seg active" : "seg"}
-              onClick={() => setKind(t)}
+              onClick={() => {
+                setKind(t);
+                setEntryMode("expense");
+              }}
             >
               {SUBTAB_LABELS[t]}
             </button>
@@ -148,7 +196,23 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
 
       {/* ---------------- Add a new entry ---------------- */}
       <div className="panel" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Add entry</h3>
+        <div className="form-head">
+          <h3 style={{ margin: 0 }}>Add entry</h3>
+          {canSave && (
+            <div className="segmented">
+              {([["expense", "Expense"], ["savings", "Saved into investments"]] as
+                [EntryMode, string][]).map(([id, label]) => (
+                <button
+                  key={id}
+                  className={entryMode === id ? "seg active" : "seg"}
+                  onClick={() => setEntryMode(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <table className="cards-on-mobile">
           {head}
           <tbody>
@@ -167,12 +231,16 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                 />
               </td>
               <td data-label="Category">
-                <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                  <option value="">— category —</option>
-                  {categories.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                {isSavings ? (
+                  <span className="pill savings">Savings</span>
+                ) : (
+                  <select value={category} onChange={(e) => setCategory(e.target.value)}>
+                    <option value="">— category —</option>
+                    {categories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                )}
               </td>
               <td data-label={personColTitle}>
                 <select value={person} onChange={(e) => setPerson(e.target.value as Person)}>
@@ -196,40 +264,78 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
         </table>
       </div>
 
-      {/* ---------------- Registered entries (filterable) ---------------- */}
-      <div className="panel">
-        <h3 style={{ marginTop: 0 }}>Registered entries</h3>
-        <PeriodFilter state={filter} />
-        <p className="subtitle">
-          Total for this period: <strong>{fmtMoney(total)}</strong> · {filtered.length} entries
-        </p>
-        <table className="cards-on-mobile">
-          {head}
-          <tbody>
-            {filtered.map((r) => (
-              <tr key={r.id}>
-                <td data-label="Date">{fmtDate(r.date)}</td>
-                <td className="num" data-label="Value">{fmtMoney(r.value)}</td>
-                <td data-label="Category">{r.category}</td>
-                <td data-label={personColTitle}>
-                  <span className="pill">{personLabel(r.paidBy ?? r.person)}</span>
-                </td>
-                <td data-label="Description">{r.description}</td>
-                <td>
-                  <button className="ghost danger" onClick={() => remove(r)} disabled={!online}>✕</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {filtered.length === 0 && (
-          <div className="empty">
-            {rows?.length === 0
-              ? "No entries yet — add one above."
-              : "No entries for this period."}
-          </div>
-        )}
-      </div>
+      {/* ---------------- Registered entries ---------------- */}
+      {isIncome ? (
+        <div className="panel">
+          <h3 style={{ marginTop: 0 }}>Registered entries</h3>
+          <PeriodFilter state={filter} />
+          <p className="subtitle">
+            Total for this period: <strong>{fmtMoney(total)}</strong> · {filtered.length} entries
+          </p>
+          <table className="cards-on-mobile">
+            {head}
+            <tbody>
+              {filtered.map((r) => (
+                <tr key={r.id}>
+                  <td data-label="Date">{fmtDate(r.date)}</td>
+                  <td className="num" data-label="Value">{fmtMoney(r.value)}</td>
+                  <td data-label="Category">{r.category}</td>
+                  <td data-label={personColTitle}>
+                    <span className="pill">{personLabel(r.paidBy ?? r.person)}</span>
+                  </td>
+                  <td data-label="Description">{r.description}</td>
+                  <td>
+                    <button className="ghost danger" onClick={() => remove(r)} disabled={!online}>✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length === 0 && (
+            <div className="empty">
+              {rows?.length === 0
+                ? "No entries yet — add one above."
+                : "No entries for this period."}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="panel">
+          <h3 style={{ marginTop: 0 }}>Latest this month</h3>
+          <p className="subtitle">
+            The 5 most recent entries of {monthName(currentMonth)} {currentYear}.{" "}
+            <Link to="/history" className="link-more">View full history →</Link>
+          </p>
+          <table className="cards-on-mobile">
+            {head}
+            <tbody>
+              {recent.map((r) => (
+                <tr key={r.id}>
+                  <td data-label="Date">{fmtDate(r.date)}</td>
+                  <td className="num" data-label="Value">{fmtMoney(r.value)}</td>
+                  <td data-label="Category">
+                    {r.saved ? <span className="pill savings">Savings</span> : r.category}
+                  </td>
+                  <td data-label={personColTitle}>
+                    <span className="pill">{personLabel(r.paidBy ?? r.person)}</span>
+                  </td>
+                  <td data-label="Description">{r.description}</td>
+                  <td>
+                    <button className="ghost danger" onClick={() => remove(r)} disabled={!online}>✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {recent.length === 0 && (
+            <div className="empty">
+              {(rows ?? []).length === 0
+                ? "No entries yet — add one above."
+                : `No entries in ${monthName(currentMonth)} yet — see the full history for older ones.`}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

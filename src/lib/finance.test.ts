@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildIncomeSplits,
   buildOverview,
   commonShareFor,
   computeSettlement,
@@ -7,6 +8,7 @@ import {
   monthEnd,
   monthStart,
   netInvestmentByCategory,
+  SAVINGS_CATEGORY,
   sumByCategory,
   summarizeInvestments,
   toISO,
@@ -22,6 +24,14 @@ const income = (date: string, value: number, person: "P1" | "P2"): IncomeEntry =
 });
 const expense = (date: string, value: number, paidBy: "P1" | "P2"): ExpenseEntry => ({
   date, value, category: "Comida", paidBy,
+});
+const savedCommon = (date: string, value: number, paidBy: "P1" | "P2"): ExpenseEntry => ({
+  date, value, category: SAVINGS_CATEGORY, paidBy, saved: true,
+});
+const savedPersonal = (
+  date: string, value: number, person: "P1" | "P2"
+): PersonalExpenseEntry => ({
+  date, value, category: SAVINGS_CATEGORY, person, saved: true,
 });
 const bill = (
   date: string, value: number, scope: "P1" | "P2" | "Common", paidBy: "P1" | "P2"
@@ -100,6 +110,7 @@ describe("buildOverview", () => {
           {
             date: "2026-01-03", value: 2, category: "Removed", paidBy: "P2",
           } as ExpenseEntry,
+          savedCommon("2026-01-06", 15, "P1"),
         ],
         personalExpenses: [
           {
@@ -107,11 +118,9 @@ describe("buildOverview", () => {
           } as PersonalExpenseEntry,
         ],
         bills: [bill("2026-01-05", 10, "Common", "P1")],
-        investments: [investment({ value: 20, units: 2, pricePoint: 10 })],
         incomeCategories: ["Emprego"],
         expenseCategories: ["Comida"],
         billCategories: ["Streaming"],
-        investmentCategories: ["Trading 212"],
       },
       "2026-01-01",
       "2026-01-31"
@@ -120,8 +129,28 @@ describe("buildOverview", () => {
     expect(out.totalExpenses).toBe(32);
     expect(out.totalPersonal).toBe(5);
     expect(out.totalBills).toBe(10);
-    expect(out.totalInvestments).toBe(20);
-    expect(out.totalSaved).toBe(100 - (32 + 5 + 10 + 20));
+    expect(out.totalSavings).toBe(15);
+    expect(out.totalSaved).toBe(100 - (32 + 5 + 10 + 15));
+  });
+
+  it("keeps saved money out of spending and reports it under the Savings category", () => {
+    const out = buildOverview(
+      {
+        income: [],
+        expenses: [savedCommon("2026-01-02", 200, "P1")],
+        personalExpenses: [savedPersonal("2026-01-03", 50, "P2")],
+        bills: [],
+        incomeCategories: [],
+        expenseCategories: [],
+        billCategories: [],
+      },
+      "2026-01-01",
+      "2026-01-31"
+    );
+    expect(out.totalExpenses).toBe(0);
+    expect(out.totalPersonal).toBe(0);
+    expect(out.totalSavings).toBe(250);
+    expect(out.savings).toEqual([{ category: SAVINGS_CATEGORY, value: 250 }]);
   });
 });
 
@@ -316,5 +345,60 @@ describe("computeSettlement", () => {
     );
     expect(s.settledNetP1).toBe(130);
     expect(s).toMatchObject({ from: "P1", to: "P2", amount: 30 });
+  });
+
+  it("keeps saved-into-investments rows out of the shared pool", () => {
+    const s = computeSettlement(
+      {
+        income: [income(start, 1000, "P1"), income(start, 1000, "P2")],
+        expenses: [expense(start, 200, "P1"), savedCommon(start, 500, "P1")],
+        bills: [],
+      },
+      start, end
+    );
+    expect(s.pool).toBe(200);
+    expect(s.paidP1).toBe(200);
+    expect(s).toMatchObject({ from: "P2", to: "P1", amount: 100 });
+  });
+});
+
+describe("buildIncomeSplits", () => {
+  const start = "2026-01-01";
+  const end = "2026-01-31";
+
+  it("splits each person's income into expenses, invested and saved", () => {
+    const { p1, p2 } = buildIncomeSplits(
+      {
+        income: [income(start, 3000, "P1"), income(start, 1000, "P2")],
+        expenses: [
+          expense(start, 400, "P1"),
+          savedCommon(start, 200, "P1"),
+        ],
+        personalExpenses: [
+          {
+            date: start, value: 50, category: "Comida", person: "P2",
+          } as PersonalExpenseEntry,
+          savedPersonal(start, 300, "P2"),
+        ],
+        bills: [bill(start, 100, "Common", "P1")],
+      },
+      start, end
+    );
+    // P1 carries 75% of common spending, so 0.75×(400 + 100) = 375 and
+    // 0.75×200 = 150 of the common investing.
+    expect(p1).toMatchObject({ income: 3000, expenses: 375, invested: 150 });
+    expect(p1.saved).toBeCloseTo(3000 - 375 - 150);
+    // P2's own 50 spend + 300 saved, plus 25% of the common side.
+    expect(p2).toMatchObject({ income: 1000, expenses: 175, invested: 350 });
+    expect(p2.saved).toBeCloseTo(1000 - 175 - 350);
+  });
+
+  it("falls back to a 50/50 share with no income, and reports a negative saved", () => {
+    const { p1, p2 } = buildIncomeSplits(
+      { income: [], expenses: [expense(start, 100, "P1")], personalExpenses: [], bills: [] },
+      start, end
+    );
+    expect(p1).toMatchObject({ income: 0, expenses: 50, invested: 0, saved: -50 });
+    expect(p2).toMatchObject({ income: 0, expenses: 50, invested: 0, saved: -50 });
   });
 });

@@ -68,6 +68,30 @@ describe("validateBackup", () => {
     expect(out.bills[0]).not.toHaveProperty("description");
   });
 
+  it("keeps the saved-into-investments flag, and treats a missing flag as spending", () => {
+    const out = validateBackup(
+      withRow("expenses", {
+        date: "2026-06-03", value: 50, category: "Savings", paidBy: "P1", saved: true,
+      })
+    );
+    expect(out.expenses[0]).toEqual({
+      date: "2026-06-03", value: 50, category: "Savings", paidBy: "P1", saved: true,
+    });
+    // Old exports have no `saved` key — they must still import as plain spending.
+    const legacy = validateBackup(validBackup());
+    expect(legacy.expenses[0]).not.toHaveProperty("saved");
+  });
+
+  it("rejects a junk saved flag", () => {
+    expect(() =>
+      validateBackup(
+        withRow("expenses", {
+          date: "2026-06-03", value: 50, category: "Savings", paidBy: "P1", saved: "yes",
+        })
+      )
+    ).toThrow(/saved/);
+  });
+
   it("forces the singleton config key", () => {
     const data = validBackup();
     data.config[0].key = "something-else";

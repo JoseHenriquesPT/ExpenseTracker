@@ -18,7 +18,7 @@ npm run dev                  # http://localhost:5173
 ```
 
 First-time backend setup: run the files in `supabase/migrations/` in order
-(`0001` → `0005`) in the Supabase SQL editor, add the allowed emails, and enable
+(`0001` → `0007`) in the Supabase SQL editor, add the allowed emails, and enable
 the Google auth provider. See the inline notes in `0001_init.sql`.
 
 To run the tests and the optimized build locally:
@@ -33,11 +33,17 @@ npm run preview
 
 | Spreadsheet sheet            | App equivalent                                   |
 |------------------------------|--------------------------------------------------|
-| Common / Individual Expenses / Income / Investments | Ledger pages (`src/pages/LedgerPage.tsx`) |
+| Home hub                     | Every section as a card (`src/pages/HomePage.tsx`) |
+| Common / Individual Expenses / Income | Expenses & Savings + Income ledgers (`src/pages/LedgerPage.tsx`) |
 | Bills (paid)                 | Bills page (`src/pages/BillsPage.tsx`)           |
+| Full entry record            | History page (`src/pages/HistoryPage.tsx`)       |
 | Montly / Annual Overview     | Dashboard (`src/pages/Dashboard.tsx`)            |
 | Data Config                  | Settings → people + category editors             |
 | Settings (date engine)       | Dashboard month/year selectors                   |
+
+`/investments` is archived (not linked from Home) — old rows stay reachable and
+in backups, but new money moved into investments is registered as **Saved into
+investments** under Expenses & Savings.
 
 ## Two people (P1 / P2)
 
@@ -50,6 +56,9 @@ The tracker distinguishes two people (rename them in **Settings → People**):
   bills are that person's own responsibility.
 - **Individual Expenses** are personal spending attributed to a person — never
   shared, so they don't enter the settlement.
+- **Saved into investments** is an expense flagged as savings: it shows under the
+  Savings category, counts as invested in the Dashboard income pies, and is
+  deliberately **not** part of the settlement pool.
 
 ### Settlement (`computeSettlement` in `src/lib/finance.ts`)
 
@@ -57,7 +66,7 @@ At the end of a period the Dashboard shows a single settling transfer:
 
 ```
 share%      = person_income / total_income          (50/50 if no income)
-pool        = common expenses + Common-tagged bills
+pool        = common expenses + Common-tagged bills   (savings excluded)
 fair_share  = share% × pool
 balance     = what they paid out of pocket − fair_share
 ```
@@ -72,10 +81,14 @@ The Dashboard's **Settle** button records that transfer for the period (stored i
 `src/lib/finance.ts` holds the real logic:
 
 - **`buildOverview(...)`** — windowed `SUM ... GROUP BY category` for each stream,
-  with investments = Invested − Withdraw, and Saved = Income − (Common Expenses +
-  Individual Expenses + Bills + Investments). Port of the Overview `SUMIFS` grids.
+  with saved-into-investments rows split out as Savings, and Saved = Income −
+  (Common Expenses + Individual Expenses + Bills + Savings). Port of the Overview
+  `SUMIFS` grids.
 - **`computeSettlement(...)`** — the income-proportional fair-share split above,
   net of any recorded `settlements` for the period.
+- **`buildIncomeSplits(...)`** — the two Dashboard pies: each person's income
+  split into their fair share of all spending, what they invested (saved into
+  investments) and what's left as savings.
 
 ## Backup
 

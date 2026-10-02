@@ -1,6 +1,6 @@
 import type {
   Entry, ExpenseEntry, IncomeEntry, Investment, Bill,
-  SettlementRecord, Person, Scope,
+  PersonalExpenseEntry, SettlementRecord, Person, Scope,
 } from "../db/types";
 
 // ---------------------------------------------------------------------------
@@ -106,32 +106,37 @@ export function netInvestmentByCategory(
 
 export interface OverviewData {
   income: CategoryTotal[];
+  /** Spending only — saved-into-investments rows are excluded. */
   expenses: CategoryTotal[];
+  /** Individual spending only — saved rows are excluded. */
   personal: CategoryTotal[];
   bills: CategoryTotal[];
-  investments: CategoryTotal[];
+  /** Money moved into investments, always under the Savings category. */
+  savings: CategoryTotal[];
   totalIncome: number;
   totalExpenses: number;
   totalPersonal: number;
   totalBills: number;
-  totalInvestments: number;
+  totalSavings: number;
   totalSaved: number;
 }
 
 export interface OverviewInputs {
   income: Entry[];
-  expenses: Entry[];
+  expenses: ExpenseEntry[];
   /** Individual (personal) expenses — categorised with the expense list. */
-  personalExpenses: Entry[];
+  personalExpenses: PersonalExpenseEntry[];
   bills: Bill[];
-  investments: Investment[];
   incomeCategories: string[];
   expenseCategories: string[];
   billCategories: string[];
-  investmentCategories: string[];
 }
 
 const sum = (xs: CategoryTotal[]) => xs.reduce((a, x) => a + x.value, 0);
+
+/** Money moved into investments is registered as an expense but reported as
+ *  its own Savings category, so it never looks like spending. */
+export const SAVINGS_CATEGORY = "Savings";
 
 /** Build a full overview for a date window — used by both Monthly and Annual. */
 export function buildOverview(
@@ -140,12 +145,25 @@ export function buildOverview(
   end: string
 ): OverviewData {
   const income = sumByCategory(inp.income, inp.incomeCategories, start, end);
-  const expenses = sumByCategory(inp.expenses, inp.expenseCategories, start, end);
-  const personal = sumByCategory(inp.personalExpenses, inp.expenseCategories, start, end);
+  const expenses = sumByCategory(
+    inp.expenses.filter((r) => !r.saved),
+    inp.expenseCategories,
+    start,
+    end
+  );
+  const personal = sumByCategory(
+    inp.personalExpenses.filter((r) => !r.saved),
+    inp.expenseCategories,
+    start,
+    end
+  );
   const bills = sumByCategory(inp.bills, inp.billCategories, start, end);
-  const investments = netInvestmentByCategory(
-    inp.investments,
-    inp.investmentCategories,
+  const savings = sumByCategory(
+    [
+      ...inp.expenses.filter((r) => r.saved),
+      ...inp.personalExpenses.filter((r) => r.saved),
+    ],
+    [SAVINGS_CATEGORY],
     start,
     end
   );
@@ -154,22 +172,22 @@ export function buildOverview(
   const totalExpenses = sum(expenses);
   const totalPersonal = sum(personal);
   const totalBills = sum(bills);
-  const totalInvestments = sum(investments);
+  const totalSavings = sum(savings);
 
   return {
     income,
     expenses,
     personal,
     bills,
-    investments,
+    savings,
     totalIncome,
     totalExpenses,
     totalPersonal,
     totalBills,
-    totalInvestments,
+    totalSavings,
     // Total Saved = Income − (Expenses + Individual + Bills + Investments)
     totalSaved:
-      totalIncome - (totalExpenses + totalPersonal + totalBills + totalInvestments),
+      totalIncome - (totalExpenses + totalPersonal + totalBills + totalSavings),
   };
 }
 
@@ -384,9 +402,10 @@ export function computeSettlement(
   const incomeP2 = sumBy(inp.income, (r) => r.person === "P2");
   const totalIncome = incomeP1 + incomeP2;
 
-  // Out-of-pocket on shared items, per person.
-  const expPaidP1 = sumBy(inp.expenses, (r) => r.paidBy === "P1");
-  const expPaidP2 = sumBy(inp.expenses, (r) => r.paidBy === "P2");
+  // Out-of-pocket on shared items, per person. Saved-into-investments rows are
+  // deliberately excluded: they're a transfer, not household spending.
+  const expPaidP1 = sumBy(inp.expenses, (r) => !r.saved && r.paidBy === "P1");
+  const expPaidP2 = sumBy(inp.expenses, (r) => !r.saved && r.paidBy === "P2");
   const billPaidP1 = sumBy(inp.bills, (r) => r.scope === "Common" && r.paidBy === "P1");
   const billPaidP2 = sumBy(inp.bills, (r) => r.scope === "Common" && r.paidBy === "P2");
 
@@ -431,4 +450,73 @@ export function computeSettlement(
     settledNetP1: round2(settledNetP1),
     from, to, amount,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Per-person income split (the two Dashboard pies)
+// ---------------------------------------------------------------------------
+
+export interface IncomeSplit {
+  /** The person's own income for the window. */
+  income: number;
+  /** Their fair share of all household spending: income % of common expenses
+   *  and bills, plus their own individual expenses and bills. */
+  expenses: number;
+  /** Money moved into investments: their own savings plus their income % of
+   *  the household's common savings. */
+  invested: number;
+  /** income − expenses − invested; negative means they overspent. */
+  saved: number;
+}
+
+export interface IncomeSplitInputs {
+  income: IncomeEntry[];
+  expenses: ExpenseEntry[];
+  personalExpenses: PersonalExpenseEntry[];
+  bills: Bill[];
+}
+
+/**
+ * Split each person's income into what they consumed (fair share of all
+ * spending), what they put into investments, and what's left as savings.
+ * Common spending uses the same income-proportional share as the settlement
+ * (50/50 fallback with no income), so the two views agree.
+ */
+export function buildIncomeSplits(
+  inp: IncomeSplitInputs,
+  start: string,
+  end: string
+): { p1: IncomeSplit; p2: IncomeSplit } {
+  const win = (d: string) => inWindow(d, start, end);
+  const total = <T extends Entry>(rows: T[], pred: (r: T) => boolean) =>
+    rows.filter((r) => win(r.date) && pred(r)).reduce((a, r) => a + r.value, 0);
+
+  const incomeP1 = total(inp.income, (r) => r.person === "P1");
+  const incomeP2 = total(inp.income, (r) => r.person === "P2");
+  const totalIncome = incomeP1 + incomeP2;
+  const shareP1 = totalIncome > 0 ? incomeP1 / totalIncome : 0.5;
+  const shareP2 = 1 - shareP1;
+
+  const commonExpenses = total(inp.expenses, (r) => !r.saved);
+  const commonSavings = total(inp.expenses, (r) => !!r.saved);
+  const commonBills = total(inp.bills, (r) => r.scope === "Common");
+
+  const splitFor = (person: Person, share: number): IncomeSplit => {
+    const income = person === "P1" ? incomeP1 : incomeP2;
+    const personalExpenses = total(
+      inp.personalExpenses,
+      (r) => r.person === person && !r.saved
+    );
+    const personalSavings = total(
+      inp.personalExpenses,
+      (r) => r.person === person && !!r.saved
+    );
+    const personalBills = total(inp.bills, (r) => r.scope === person);
+    const expenses =
+      (commonExpenses + commonBills) * share + personalExpenses + personalBills;
+    const invested = commonSavings * share + personalSavings;
+    return { income, expenses, invested, saved: income - expenses - invested };
+  };
+
+  return { p1: splitFor("P1", shareP1), p2: splitFor("P2", shareP2) };
 }

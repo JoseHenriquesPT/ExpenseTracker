@@ -3,8 +3,10 @@ import ReactDOM from "react-dom/client";
 import { createHashRouter, Navigate, RouterProvider } from "react-router-dom";
 import AuthGate from "./auth/AuthGate";
 import App from "./App";
+import HomePage from "./pages/HomePage";
 import Dashboard from "./pages/Dashboard";
 import LedgerPage from "./pages/LedgerPage";
+import HistoryPage from "./pages/HistoryPage";
 import InvestmentsPage from "./pages/InvestmentsPage";
 import BillsPage from "./pages/BillsPage";
 import PlannedPage from "./pages/PlannedPage";
@@ -17,11 +19,14 @@ const router = createHashRouter([
     path: "/",
     element: <App />,
     children: [
-      { index: true, element: <Dashboard /> },
+      { index: true, element: <HomePage /> },
+      { path: "dashboard", element: <Dashboard /> },
       { path: "expenses", element: <LedgerPage tabs={["expenses", "personalExpenses"]} /> },
       // Old standalone route — Individual now lives as a subtab under Expenses.
       { path: "personal", element: <Navigate to="/expenses" replace /> },
       { path: "income", element: <LedgerPage tabs={["income"]} /> },
+      { path: "history", element: <HistoryPage /> },
+      // Archived: no longer linked from Home, kept so old rows stay reachable.
       { path: "investments", element: <InvestmentsPage /> },
       { path: "bills", element: <BillsPage /> },
       { path: "planned", element: <PlannedPage /> },

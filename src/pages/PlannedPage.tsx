@@ -294,33 +294,16 @@ function PlanCard({
 
 function PlannedLinks({ links }: { links: PlannedLink[] }) {
   const urls = links.filter((l) => l.url);
-  const boxRef = useRef<HTMLDivElement | null>(null);
-  const [clipped, setClipped] = useState(false);
-
-  // The list always shows, capped at a fixed height: flag when it doesn't all
-  // fit so a trailing "…" tells the reader there's more.
-  useEffect(() => {
-    const el = boxRef.current;
-    if (!el) return;
-    const measure = () => setClipped(el.scrollHeight > el.clientHeight + 1);
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [urls.length]);
-
   if (!urls.length) return null;
+  // The box grows with the number of links; an over-long URL is the only thing
+  // that gets cut, ending in "…" on its own line.
   return (
-    <div className="plan-links read-only" ref={boxRef}>
+    <div className="plan-links read-only">
       {urls.map((l, i) => (
         <a key={i} href={l.url} target="_blank" rel="noreferrer" title={l.url}>
           {l.url}
         </a>
       ))}
-      {clipped && (
-        <span className="plan-links-more" aria-hidden="true">…</span>
-      )}
     </div>
   );
 }

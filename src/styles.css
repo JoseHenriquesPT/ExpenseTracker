@@ -184,23 +184,15 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .plan-link-row { display: flex; gap: 8px; align-items: center; }
 .plan-link-row input { flex: 1 1 auto; min-width: 0; }
 .link-remove { flex: 0 0 auto; padding: 6px 9px; color: var(--muted); }
-.plan-links.read-only { position: relative; max-height: 96px; overflow: hidden; }
 .plan-links.read-only a {
   display: block;
+  flex: 0 0 auto;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--accent);
 }
 .plan-links.read-only a:hover { text-decoration: underline; }
-.plan-links-more {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  padding: 0 2px 0 24px;
-  background: linear-gradient(90deg, rgba(23, 26, 43, 0), var(--panel) 55%);
-  color: var(--muted);
-}
 .plan-notes { margin: 0; color: var(--muted); font-size: 13px; white-space: pre-wrap; }
 .plan-notes-input { width: 100%; resize: vertical; min-height: 56px; }
 .add-link { align-self: flex-start; font-size: 13px; padding: 5px 10px; }

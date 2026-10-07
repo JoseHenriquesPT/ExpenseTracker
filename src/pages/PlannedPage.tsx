@@ -39,6 +39,7 @@ export default function PlannedPage() {
   async function addPlan() {
     const id = await db.plannedExpenses.add({
       name: "",
+      notes: "",
       links: [{ ...EMPTY_LINK }],
       purchased: false,
     });
@@ -107,9 +108,12 @@ function PlanCard({
   onPurchase: (plan: PlannedExpense) => void;
 }) {
   const { busy, run } = useBusy();
-  const savedKey = JSON.stringify({ name: plan.name, links: plan.links });
+  const savedKey = JSON.stringify({
+    name: plan.name, notes: plan.notes ?? "", links: plan.links,
+  });
   const savedRef = useRef(savedKey);
   const [name, setName] = useState(plan.name);
+  const [notes, setNotes] = useState(plan.notes ?? "");
   const [links, setLinks] = useState<PlannedLink[]>(withOneRow(plan.links));
   const [editing, setEditing] = useState(autoFocusName);
 
@@ -120,29 +124,36 @@ function PlanCard({
     savedRef.current = savedKey;
     if (!editing) {
       setName(plan.name);
+      setNotes(plan.notes ?? "");
       setLinks(withOneRow(plan.links));
     }
-  }, [savedKey, editing, plan.name, plan.links]);
+  }, [savedKey, editing, plan.name, plan.notes, plan.links]);
 
   const cleaned = cleanLinks(links);
+  const cleanNotes = notes.trim();
   const dirty =
-    editing && JSON.stringify({ name: name.trim(), links: cleaned }) !== savedKey;
+    editing &&
+    JSON.stringify({ name: name.trim(), notes: cleanNotes, links: cleaned }) !== savedKey;
 
   async function save() {
     if (dirty) {
       const trimmed = name.trim();
-      await db.plannedExpenses.put({ ...plan, name: trimmed, links: cleaned });
+      await db.plannedExpenses.put({
+        ...plan, name: trimmed, notes: cleanNotes, links: cleaned,
+      });
       setName(trimmed);
+      setNotes(cleanNotes);
       setLinks(withOneRow(cleaned));
     }
     setEditing(false);
   }
 
   async function purchase() {
-    if (dirty) {
-      await db.plannedExpenses.put({ ...plan, name: name.trim(), links: cleaned });
-    }
-    onPurchase({ ...plan, name: name.trim(), links: cleaned });
+    const draft = {
+      ...plan, name: name.trim(), notes: cleanNotes, links: cleaned,
+    };
+    if (dirty) await db.plannedExpenses.put(draft);
+    onPurchase(draft);
   }
 
   async function deletePlan() {
@@ -175,6 +186,7 @@ function PlanCard({
           <strong>{fmtMoney(plan.finalValue ?? 0)}</strong> · {who} ·{" "}
           {fmtDate(plan.purchasedDate ?? "")}
         </div>
+        {plan.notes?.trim() && <p className="plan-notes">{plan.notes}</p>}
         {plan.links.length > 0 && <PlannedLinks links={plan.links} />}
         <div className="plan-actions">
           <button
@@ -193,6 +205,7 @@ function PlanCard({
     return (
       <div className="plan collapsed">
         <div className="plan-name">{plan.name || "Untitled planned expense"}</div>
+        {plan.notes?.trim() && <p className="plan-notes">{plan.notes}</p>}
         <PlannedLinks links={plan.links} />
         <div className="plan-actions">
           <button onClick={() => setEditing(true)} disabled={busy}>
@@ -214,6 +227,15 @@ function PlanCard({
         value={name}
         autoFocus={autoFocusName}
         onChange={(e) => setName(e.target.value)}
+        disabled={busy}
+      />
+
+      <textarea
+        className="plan-notes-input"
+        placeholder="Notes — draft anything (optional)"
+        rows={2}
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
         disabled={busy}
       />
 
@@ -271,22 +293,33 @@ function PlanCard({
 }
 
 function PlannedLinks({ links }: { links: PlannedLink[] }) {
-  const [open, setOpen] = useState(false);
   const urls = links.filter((l) => l.url);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const [clipped, setClipped] = useState(false);
+
+  // The list always shows, capped at a fixed height: flag when it doesn't all
+  // fit so a trailing "…" tells the reader there's more.
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const measure = () => setClipped(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [urls.length]);
+
   if (!urls.length) return null;
   return (
-    <div className="plan-link-list">
-      <button className="ghost link-toggle" onClick={() => setOpen(!open)}>
-        {open ? "▾" : "▸"} {urls.length} link{urls.length === 1 ? "" : "s"}
-      </button>
-      {open && (
-        <div className="plan-links read-only limited">
-          {urls.map((l, i) => (
-            <a key={i} href={l.url} target="_blank" rel="noreferrer">
-              {l.url}
-            </a>
-          ))}
-        </div>
+    <div className="plan-links read-only" ref={boxRef}>
+      {urls.map((l, i) => (
+        <a key={i} href={l.url} target="_blank" rel="noreferrer" title={l.url}>
+          {l.url}
+        </a>
+      ))}
+      {clipped && (
+        <span className="plan-links-more" aria-hidden="true">…</span>
       )}
     </div>
   );

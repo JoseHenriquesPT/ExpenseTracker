@@ -255,17 +255,17 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                     ))}
                   </select>
                 ) : (
-                  <div className="radio-row">
+                  <div className="choice-row" role="group" aria-label={personColTitle}>
                     {people.map((p) => (
-                      <label key={p.id} className="radio">
-                        <input
-                          type="radio"
-                          name={`person-${kind}`}
-                          checked={person === p.id}
-                          onChange={() => setPerson(p.id)}
-                        />
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={person === p.id ? "choice active" : "choice"}
+                        aria-pressed={person === p.id}
+                        onClick={() => setPerson(p.id)}
+                      >
                         {p.name}
-                      </label>
+                      </button>
                     ))}
                   </div>
                 )}

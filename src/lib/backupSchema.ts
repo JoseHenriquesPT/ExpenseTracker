@@ -212,16 +212,21 @@ export function validateBackup(input: unknown): BackupData {
   const plannedExpenses = tableRows(input, "plannedExpenses").map((row, i) => {
     const where = `plannedExpenses[${i}]`;
     const name = stringField(row, "name", where);
+    const notes = optionalString(row, "notes", where);
     const links = plannedLinks(row, where);
     const purchased = boolField(row, "purchased", where);
-    // Purchase details only exist on bought items; on a draft plan they're
-    // dropped, so junk can't sneak into the restore.
-    if (!purchased) return { name, links, purchased };
-    const scope = enumField(row, "scope", SCOPES, where) as Scope;
-    return {
+    const draft = {
       name,
       links,
       purchased,
+      ...(notes !== undefined ? { notes } : {}),
+    };
+    // Purchase details only exist on bought items; on a draft plan they're
+    // dropped, so junk can't sneak into the restore.
+    if (!purchased) return draft;
+    const scope = enumField(row, "scope", SCOPES, where) as Scope;
+    return {
+      ...draft,
       purchasedDate: dateField(row, "purchasedDate", where),
       finalValue: numField(row, "finalValue", where),
       scope,

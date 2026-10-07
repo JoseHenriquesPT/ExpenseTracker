@@ -74,12 +74,15 @@ export interface PlannedLink {
 }
 
 /** Planned Expenses — a wishlist of things to buy, kept as boxes. Each box has
- *  a name and a list of links; it starts unpurchased. Marking it purchased
- *  writes the final price into the shared or an individual expense ledger and
- *  stamps the purchase details here, so the box stays as a record. */
+ *  a name, optional free-text notes and a list of links; it starts unpurchased.
+ *  Marking it purchased writes the final price into the shared or an individual
+ *  expense ledger and stamps the purchase details here, so the box stays as a
+ *  record. */
 export interface PlannedExpense {
   id?: number;
   name: string;
+  /** Free-text draft/notes about the item — hidden in the UI when empty. */
+  notes?: string;
   links: PlannedLink[];
   purchased: boolean;
   /** ISO date the item was bought — set when purchased. */

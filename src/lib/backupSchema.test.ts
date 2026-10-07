@@ -172,6 +172,31 @@ describe("validateBackup", () => {
     expect(out.plannedExpenses[0]).not.toHaveProperty("paidBy");
   });
 
+  it("keeps a planned expense's notes on both a draft and a purchased plan", () => {
+    const draft = validateBackup(
+      withRow("plannedExpenses", {
+        name: "New couch", links: [], purchased: false, notes: "Wait for the summer sale",
+      })
+    );
+    expect(draft.plannedExpenses[0].notes).toBe("Wait for the summer sale");
+
+    const purchased = validateBackup(
+      withRow("plannedExpenses", {
+        name: "New couch", links: [], purchased: true, notes: "Bought the grey one",
+        purchasedDate: "2026-07-01", finalValue: 10, scope: "P1",
+      })
+    );
+    expect(purchased.plannedExpenses[0].notes).toBe("Bought the grey one");
+  });
+
+  it("rejects a non-string notes value with the row position", () => {
+    expect(() =>
+      validateBackup(
+        withRow("plannedExpenses", { name: "x", links: [], purchased: false, notes: 7 })
+      )
+    ).toThrow(/notes/);
+  });
+
   it("requires date, price, valid scope and (for Common) payer on a purchased plan", () => {
     const base = {
       name: "New couch", links: [], purchased: true, scope: "P1",

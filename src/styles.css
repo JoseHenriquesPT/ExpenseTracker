@@ -61,7 +61,7 @@ h2 { margin: 0 0 4px; }
   margin-bottom: 16px;
 }
 
-button, select, input {
+button, select, input, textarea {
   font: inherit;
   color: var(--text);
   background: var(--panel-2);
@@ -74,8 +74,8 @@ button:hover { border-color: var(--accent); }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.danger { color: var(--red); }
 button.ghost { background: transparent; }
-input::placeholder { color: var(--muted); }
-button:disabled, input:disabled, select:disabled {
+input::placeholder, textarea::placeholder { color: var(--muted); }
+button:disabled, input:disabled, select:disabled, textarea:disabled {
   opacity: .45;
   cursor: not-allowed;
 }
@@ -137,9 +137,26 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   margin-bottom: 10px;
 }
 .form-head h3 { margin: 0; }
-.radio-row { display: flex; gap: 14px; flex-wrap: wrap; }
-.radio { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
-.radio input { accent-color: var(--accent); margin: 0; }
+.choice-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.choice {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background .12s ease, border-color .12s ease, color .12s ease,
+    transform .08s ease, box-shadow .12s ease;
+}
+.choice:hover { color: var(--text); border-color: var(--accent); }
+.choice:active { transform: scale(.95); }
+.choice.active,
+.choice.active:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(108, 140, 255, .28);
+}
 
 /* ---- Planned expenses ---- */
 .plan-grid {
@@ -164,14 +181,28 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .plan-meta { color: var(--muted); font-size: 13px; }
 .purchased-badge { color: var(--green); border-color: var(--green); white-space: nowrap; }
 .plan-links { display: flex; flex-direction: column; gap: 8px; }
-.plan-link-list { display: flex; flex-direction: column; gap: 6px; }
-.link-toggle { align-self: flex-start; padding: 2px 8px; font-size: 12px; color: var(--muted); }
 .plan-link-row { display: flex; gap: 8px; align-items: center; }
 .plan-link-row input { flex: 1 1 auto; min-width: 0; }
 .link-remove { flex: 0 0 auto; padding: 6px 9px; color: var(--muted); }
-.plan-links.read-only a { color: var(--accent); word-break: break-all; }
-.plan-links.read-only span { color: var(--muted); }
-.plan-links.read-only.limited { max-height: 96px; overflow-y: auto; }
+.plan-links.read-only { position: relative; max-height: 96px; overflow: hidden; }
+.plan-links.read-only a {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--accent);
+}
+.plan-links.read-only a:hover { text-decoration: underline; }
+.plan-links-more {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding: 0 2px 0 24px;
+  background: linear-gradient(90deg, rgba(23, 26, 43, 0), var(--panel) 55%);
+  color: var(--muted);
+}
+.plan-notes { margin: 0; color: var(--muted); font-size: 13px; white-space: pre-wrap; }
+.plan-notes-input { width: 100%; resize: vertical; min-height: 56px; }
 .add-link { align-self: flex-start; font-size: 13px; padding: 5px 10px; }
 .plan-actions { display: flex; gap: 8px; align-items: center; margin-top: auto; padding-top: 4px; }
 .plan-delete { margin-left: auto; }

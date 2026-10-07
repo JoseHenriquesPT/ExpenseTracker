@@ -172,15 +172,18 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* Grid items default to a content-based minimum; without this, long
+     nowrap links would widen the card past the screen. */
+  min-width: 0;
 }
 .plan.purchased { border-color: var(--green); }
 .plan.collapsed { padding: 10px 14px; gap: 6px; }
 .plan-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.plan-name { font-weight: 600; }
+.plan-name { font-weight: 600; overflow-wrap: anywhere; }
 .plan-name-input { width: 100%; font-weight: 600; }
 .plan-meta { color: var(--muted); font-size: 13px; }
 .purchased-badge { color: var(--green); border-color: var(--green); white-space: nowrap; }
-.plan-links { display: flex; flex-direction: column; gap: 8px; }
+.plan-links { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .plan-link-row { display: flex; gap: 8px; align-items: center; }
 .plan-link-row input { flex: 1 1 auto; min-width: 0; }
 .link-remove { flex: 0 0 auto; padding: 6px 9px; color: var(--muted); }
@@ -193,7 +196,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   color: var(--accent);
 }
 .plan-links.read-only a:hover { text-decoration: underline; }
-.plan-notes { margin: 0; color: var(--muted); font-size: 13px; white-space: pre-wrap; }
+.plan-notes { margin: 0; color: var(--muted); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .plan-notes-input { width: 100%; resize: vertical; min-height: 56px; }
 .add-link { align-self: flex-start; font-size: 13px; padding: 5px 10px; }
 .plan-actions { display: flex; gap: 8px; align-items: center; margin-top: auto; padding-top: 4px; }
@@ -313,7 +316,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   /* Collapse the multi-column grids so cards/charts don't overlap. */
   .cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .charts { grid-template-columns: 1fr; }
-  .plan-grid { grid-template-columns: 1fr; }
+  .plan-grid { grid-template-columns: minmax(0, 1fr); }
   .plan-link-row { flex-wrap: wrap; }
 
   /* Wide tables scroll within their panel instead of crushing into columns. */

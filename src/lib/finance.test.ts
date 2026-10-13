@@ -4,6 +4,7 @@ import {
   buildOverview,
   commonShareFor,
   computeSettlement,
+  filterByWindow,
   investmentUnits,
   monthEnd,
   monthStart,
@@ -54,6 +55,32 @@ describe("date helpers", () => {
     expect(monthEnd(2026, 12)).toBe("2026-12-31");
     expect(yearStart(2026)).toBe("2026-01-01");
     expect(yearEnd(2026)).toBe("2026-12-31");
+  });
+});
+
+describe("filterByWindow", () => {
+  const rows = [
+    { date: "2025-12-31", value: 1 },
+    { date: "2026-01-01", value: 2 },
+    { date: "2026-01-15", value: 3 },
+    { date: "2026-01-31", value: 4 },
+    { date: "2026-02-01", value: 5 },
+  ];
+
+  it("keeps every row when the window is null (all time)", () => {
+    expect(filterByWindow(rows, null)).toEqual(rows);
+  });
+
+  it("keeps rows inside the window, boundaries inclusive", () => {
+    expect(filterByWindow(rows, ["2026-01-01", "2026-01-31"])).toEqual([
+      { date: "2026-01-01", value: 2 },
+      { date: "2026-01-15", value: 3 },
+      { date: "2026-01-31", value: 4 },
+    ]);
+  });
+
+  it("returns an empty list when nothing falls inside the window", () => {
+    expect(filterByWindow(rows, ["2026-03-01", "2026-03-31"])).toEqual([]);
   });
 });
 

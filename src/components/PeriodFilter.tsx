@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { monthStart, monthEnd, yearStart, yearEnd } from "../lib/finance";
+import type { DateWindow } from "../lib/finance";
 import { MONTHS, yearOptions } from "../lib/labels";
 
 // Month/year period filter, mirroring the Dashboard's toolbar. Shared by the
@@ -13,7 +14,7 @@ export interface PeriodFilterState {
   month: number; // 1-12
   year: number;
   /** [start, end] ISO window (inclusive), or null for "all time". */
-  window: [string, string] | null;
+  window: DateWindow;
   setMode: (m: PeriodMode) => void;
   setMonth: (m: number) => void;
   setYear: (y: number) => void;
@@ -26,7 +27,7 @@ export function usePeriodFilter(): PeriodFilterState {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
 
-  const window = useMemo<[string, string] | null>(() => {
+  const window = useMemo<DateWindow>(() => {
     if (mode === "all") return null;
     return mode === "monthly"
       ? [monthStart(year, month), monthEnd(year, month)]

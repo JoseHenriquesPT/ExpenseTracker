@@ -31,6 +31,20 @@ export function yearEnd(year: number): string {
   return toISO(new Date(year, 11, 31));
 }
 
+/** Inclusive [start, end] ISO window; null means "no window" (keep all rows). */
+export type DateWindow = [string, string] | null;
+
+/** Keep rows whose date falls inside the window (boundaries inclusive).
+ *  A null window keeps every row — the period filter's "All time". */
+export function filterByWindow<T extends { date: string }>(
+  rows: T[],
+  window: DateWindow
+): T[] {
+  if (!window) return rows;
+  const [start, end] = window;
+  return rows.filter((r) => inWindow(r.date, start, end));
+}
+
 // ---------------------------------------------------------------------------
 // Aggregation — port of the Overview SUMIFS grids (analysis §5)
 // ---------------------------------------------------------------------------

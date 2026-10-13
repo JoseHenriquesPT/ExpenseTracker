@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useLiveQuery } from "../db/live";
 import { db, type SupaTable } from "../db/db";
 import type { Entry, ExpenseEntry, IncomeEntry, Person } from "../db/types";
-import { monthEnd, monthStart, SAVINGS_CATEGORY, toISO } from "../lib/finance";
+import { filterByWindow, monthEnd, monthStart, SAVINGS_CATEGORY, toISO } from "../lib/finance";
 import { monthName, personName } from "../lib/labels";
 import { fmtMoney, fmtDate } from "../lib/format";
 import { useOnline } from "../lib/useOnline";
@@ -128,12 +128,10 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
 
   // The registered-entries list filters by period, just like the Dashboard.
   const filter = usePeriodFilter();
-  const filtered = useMemo(() => {
-    const all = rows ?? [];
-    if (!filter.window) return all;
-    const [start, end] = filter.window;
-    return all.filter((r) => r.date >= start && r.date <= end);
-  }, [rows, filter.window]);
+  const filtered = useMemo(
+    () => filterByWindow(rows ?? [], filter.window),
+    [rows, filter.window]
+  );
 
   const total = filtered.reduce((acc, r) => acc + r.value, 0);
 
@@ -148,9 +146,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   ];
   const recent = useMemo(() => {
     if (!canSave) return [];
-    const [start, end] = monthWindow;
-    return (rows ?? [])
-      .filter((r) => r.date >= start && r.date <= end)
+    return filterByWindow(rows ?? [], monthWindow)
       .sort((a, b) =>
         a.date !== b.date ? (a.date < b.date ? 1 : -1) : (b.id ?? 0) - (a.id ?? 0)
       )

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useLiveQuery } from "../db/live";
 import { db } from "../db/db";
 import type { InvestmentAction, Investment, Scope } from "../db/types";
-import { toISO, summarizeInvestments, investmentUnits } from "../lib/finance";
+import { filterByWindow, toISO, summarizeInvestments, investmentUnits } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
 import { scopeName } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
@@ -110,12 +110,10 @@ export default function InvestmentsPage() {
 
   // The transactions list is period-filtered, like every other ledger.
   const filter = usePeriodFilter();
-  const filtered = useMemo(() => {
-    const all = rows ?? [];
-    if (!filter.window) return all;
-    const [start, end] = filter.window;
-    return all.filter((r) => r.date >= start && r.date <= end);
-  }, [rows, filter.window]);
+  const filtered = useMemo(
+    () => filterByWindow(rows ?? [], filter.window),
+    [rows, filter.window]
+  );
 
   const netInvested = filtered.reduce(
     (acc, r) => acc + (r.action === "Withdraw" ? -r.value : r.value),

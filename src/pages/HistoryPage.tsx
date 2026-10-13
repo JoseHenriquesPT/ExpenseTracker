@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useLiveQuery } from "../db/live";
 import { db } from "../db/db";
 import type { Person, Scope } from "../db/types";
+import { filterByWindow } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
 import { monthName, personName, scopeName } from "../lib/labels";
 import PeriodFilter, { usePeriodFilter } from "../components/PeriodFilter";
@@ -71,8 +72,7 @@ export default function HistoryPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return all.filter((r) => {
-      if (filter.window && (r.date < filter.window[0] || r.date > filter.window[1])) return false;
+    return filterByWindow(all, filter.window).filter((r) => {
       if (kind !== "all" && r.kind !== kind) return false;
       if (category !== "all" && r.category !== category) return false;
       if (q && !`${r.category} ${r.description ?? ""}`.toLowerCase().includes(q)) return false;

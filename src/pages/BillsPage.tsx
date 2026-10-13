@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useLiveQuery } from "../db/live";
 import { db } from "../db/db";
 import type { BillScope, Person } from "../db/types";
-import { toISO } from "../lib/finance";
+import { filterByWindow, toISO } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
 import { personName, scopeName } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
@@ -35,12 +35,10 @@ export default function BillsPage() {
 
   // The list filters by period, like the ledger tabs / Dashboard.
   const filter = usePeriodFilter();
-  const filtered = useMemo(() => {
-    const all = bills ?? [];
-    if (!filter.window) return all;
-    const [start, end] = filter.window;
-    return all.filter((b) => b.date >= start && b.date <= end);
-  }, [bills, filter.window]);
+  const filtered = useMemo(
+    () => filterByWindow(bills ?? [], filter.window),
+    [bills, filter.window]
+  );
   const total = filtered.reduce((a, b) => a + b.value, 0);
 
   async function addBill() {

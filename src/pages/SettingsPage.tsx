@@ -13,14 +13,13 @@ import BackHome from "../components/BackHome";
 
 type ListKey = Extract<
   keyof Config,
-  "incomeCategories" | "expenseCategories" | "billCategories" | "investmentCategories" | "plannedTags"
+  "incomeCategories" | "expenseCategories" | "billCategories" | "plannedTags"
 >;
 
 const LISTS: { key: ListKey; title: string }[] = [
   { key: "incomeCategories", title: "Income categories" },
   { key: "expenseCategories", title: "Expense categories" },
   { key: "billCategories", title: "Bill categories" },
-  { key: "investmentCategories", title: "Investment names" },
   { key: "plannedTags", title: "Planned expense areas" },
 ];
 

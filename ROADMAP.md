@@ -9,17 +9,21 @@ Tests first: the acceptance gate is an isolation test suite proving two househol
 never read or write each other's rows. Run it against a real Supabase project with two
 distinct signed-in users before opening signups.
 
-- [ ] `0008_households.sql`: add `households` (with `kind`: single | couple) and
+- [x] `0008_households.sql`: add `households` (with `kind`: single | couple) and
       `household_members`; add `householdId` to every domain table; replace the global
       `config.key` unique with `unique(householdId, key)`.
-- [ ] Backfill existing data into household #1 — the current two users keep everything.
-- [ ] `is_member(householdId)` security-definer function; rewrite all RLS policies
+- [x] Backfill existing data into household #1 — the current two users keep everything.
+- [x] `is_member(householdId)` security-definer function; rewrite all RLS policies
       (`0001`, `0002`, `0003`, `0006`) from `is_allowed()` to membership. Keep the
       allowlist as the outer beta gate for now.
 - [ ] Client scoping: household-aware `SupaTable` (reads filtered, writes injected),
       per-household `ensureConfig()`, realtime filter by `householdId`.
-- [ ] Scope `import_backup()` to the caller's household — today it deletes every tenant's rows.
+- [x] Scope `import_backup()` to the caller's household (`0009`) — previously it
+      deleted every tenant's rows.
 - [ ] Exit criteria: isolation tests pass; the current pair sees zero behavioural change.
+
+Verified locally (never production): `npx supabase db reset && npx supabase test db`
+— 46 pgTAP tests covering cross-household read/write denial and scoped imports.
 
 ## Phase 2 — Open signups, single-individual mode
 

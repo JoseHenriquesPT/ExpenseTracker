@@ -45,14 +45,12 @@ describe("filterByTags", () => {
     expect(filterByTags(plans, [])).toEqual(plans);
   });
 
-  it("keeps plans carrying any of the selected tags (OR)", () => {
+  it("keeps only plans carrying every selected tag (AND)", () => {
     expect(filterByTags(plans, ["Kitchen"]).map((p) => p.name)).toEqual([
       "Sink",
       "Paint",
     ]);
     expect(filterByTags(plans, ["Kitchen", "Living room"]).map((p) => p.name)).toEqual([
-      "Sofa",
-      "Sink",
       "Paint",
     ]);
   });

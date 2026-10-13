@@ -18,14 +18,16 @@ export function availableTags(
   return [...configured.filter((t) => used.has(t)), ...stale];
 }
 
-/** Plans carrying at least one selected tag (OR). No selection means no filter. */
+/** Plans carrying every selected tag (AND). No selection means no filter. */
 export function filterByTags(
   plans: PlannedExpense[],
   selected: string[]
 ): PlannedExpense[] {
   if (!selected.length) return plans;
-  const wanted = new Set(selected);
-  return plans.filter((p) => (p.tags ?? []).some((t) => wanted.has(t)));
+  return plans.filter((p) => {
+    const tags = p.tags ?? [];
+    return selected.every((t) => tags.includes(t));
+  });
 }
 
 /** Add the tag if absent, remove it if present. */

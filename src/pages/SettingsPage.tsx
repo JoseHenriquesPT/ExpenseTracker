@@ -13,7 +13,7 @@ import BackHome from "../components/BackHome";
 
 type ListKey = Extract<
   keyof Config,
-  "incomeCategories" | "expenseCategories" | "billCategories" | "investmentCategories"
+  "incomeCategories" | "expenseCategories" | "billCategories" | "investmentCategories" | "plannedTags"
 >;
 
 const LISTS: { key: ListKey; title: string }[] = [
@@ -21,6 +21,7 @@ const LISTS: { key: ListKey; title: string }[] = [
   { key: "expenseCategories", title: "Expense categories" },
   { key: "billCategories", title: "Bill categories" },
   { key: "investmentCategories", title: "Investment names" },
+  { key: "plannedTags", title: "Planned expense areas" },
 ];
 
 export default function SettingsPage() {
@@ -59,15 +60,17 @@ export default function SettingsPage() {
   async function addCategory(key: ListKey, raw: string) {
     const value = raw.trim();
     if (!config?.id || !value) return;
-    if (config[key].includes(value)) return;
-    await db.config.put({ ...config, [key]: [...config[key], value] });
+    // ?? [] tolerates rows from before migration 0011 added plannedTags.
+    const items = config[key] ?? [];
+    if (items.includes(value)) return;
+    await db.config.put({ ...config, [key]: [...items, value] });
   }
 
   async function removeCategory(key: ListKey, value: string) {
     if (!config?.id) return;
     await db.config.put({
       ...config,
-      [key]: config[key].filter((c) => c !== value),
+      [key]: (config[key] ?? []).filter((c) => c !== value),
     });
   }
 
@@ -183,7 +186,7 @@ export default function SettingsPage() {
           <CategoryEditor
             key={key}
             title={title}
-            items={config[key]}
+            items={config[key] ?? []}
             disabled={!online}
             onAdd={(v) => addCategory(key, v)}
             onRemove={(v) => removeCategory(key, v)}

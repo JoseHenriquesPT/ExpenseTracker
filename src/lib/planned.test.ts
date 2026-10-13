@@ -7,6 +7,7 @@ const plan: PlannedExpense = {
   name: "  New couch  ",
   links: [{ text: "Idea", url: "https://example.com/couch" }],
   purchased: false,
+  tags: ["Living room"],
 };
 
 describe("purchaseEntry", () => {
@@ -25,6 +26,8 @@ describe("purchaseEntry", () => {
       paidBy: "P2",
       description: "Planned purchase",
     });
+    // Plan tags are areas for filtering the wishlist; they never enter the ledger.
+    expect(row).not.toHaveProperty("tags");
   });
 
   it("routes an individual purchase to that person's personal expenses", () => {

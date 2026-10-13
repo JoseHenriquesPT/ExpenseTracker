@@ -214,10 +214,12 @@ export function validateBackup(input: unknown): BackupData {
     const name = stringField(row, "name", where);
     const notes = optionalString(row, "notes", where);
     const links = plannedLinks(row, where);
+    const tags = stringList(row, "tags", where);
     const purchased = boolField(row, "purchased", where);
     const draft = {
       name,
       links,
+      tags,
       purchased,
       ...(notes !== undefined ? { notes } : {}),
     };
@@ -261,6 +263,7 @@ export function validateBackup(input: unknown): BackupData {
       expenseCategories: stringList(row, "expenseCategories", where),
       billCategories: stringList(row, "billCategories", where),
       investmentCategories: stringList(row, "investmentCategories", where),
+      plannedTags: stringList(row, "plannedTags", where),
       actions: actions.length ? actions : [...ACTIONS],
     };
   });

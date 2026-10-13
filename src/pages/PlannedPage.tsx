@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "../db/live";
 import { db } from "../db/db";
 import type { Person, PlannedExpense, PlannedLink, Scope } from "../db/types";
@@ -6,6 +6,7 @@ import { toISO } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
 import { personName, scopeName, type PersonNames } from "../lib/labels";
 import { purchaseEntry, purchasedPlanPatch } from "../lib/planned";
+import { availableTags, filterByTags, toggleTag } from "../lib/plannedTags";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
@@ -33,14 +34,29 @@ export default function PlannedPage() {
   );
   const [purchasing, setPurchasing] = useState<PlannedExpense | null>(null);
   const [focusId, setFocusId] = useState<number | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const names = { p1: config?.p1Name ?? "P1", p2: config?.p2Name ?? "P2" };
+  const configuredTags = useMemo(
+    () => config?.plannedTags ?? [],
+    [config?.plannedTags]
+  );
+  // Chips to offer: configured tags in use, plus stale tags still on plans.
+  const offered = useMemo(
+    () => availableTags(plans ?? [], configuredTags),
+    [plans, configuredTags]
+  );
+  const visible = useMemo(
+    () => filterByTags(plans ?? [], selectedTags),
+    [plans, selectedTags]
+  );
 
   async function addPlan() {
     const id = await db.plannedExpenses.add({
       name: "",
       notes: "",
       links: [{ ...EMPTY_LINK }],
+      tags: [],
       purchased: false,
     });
     setFocusId(id);
@@ -63,6 +79,27 @@ export default function PlannedPage() {
         >
           + Add planned expense
         </button>
+        {offered.length > 0 && (
+          <div className="choice-row plan-filter">
+            <button
+              className={"choice" + (selectedTags.length === 0 ? " active" : "")}
+              aria-pressed={selectedTags.length === 0}
+              onClick={() => setSelectedTags([])}
+            >
+              All
+            </button>
+            {offered.map((t) => (
+              <button
+                key={t}
+                className={"choice" + (selectedTags.includes(t) ? " active" : "")}
+                aria-pressed={selectedTags.includes(t)}
+                onClick={() => setSelectedTags((s) => toggleTag(s, t))}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {plans === undefined ? (
@@ -71,14 +108,17 @@ export default function PlannedPage() {
         <div className="empty">
           No planned expenses yet — add one to start your wishlist.
         </div>
+      ) : visible.length === 0 ? (
+        <div className="empty">No planned expenses match these tags.</div>
       ) : (
         <div className="plan-grid">
-          {plans.map((plan) => (
+          {visible.map((plan) => (
             <PlanCard
               key={plan.id}
               plan={plan}
               names={names}
               online={online}
+              allTags={configuredTags}
               autoFocusName={plan.id === focusId}
               onPurchase={setPurchasing}
             />
@@ -99,22 +139,25 @@ export default function PlannedPage() {
 }
 
 function PlanCard({
-  plan, names, online, autoFocusName, onPurchase,
+  plan, names, online, allTags, autoFocusName, onPurchase,
 }: {
   plan: PlannedExpense;
   names: PersonNames;
   online: boolean;
+  allTags: string[];
   autoFocusName: boolean;
   onPurchase: (plan: PlannedExpense) => void;
 }) {
   const { busy, run } = useBusy();
+  const savedTags = [...(plan.tags ?? [])].sort();
   const savedKey = JSON.stringify({
-    name: plan.name, notes: plan.notes ?? "", links: plan.links,
+    name: plan.name, notes: plan.notes ?? "", links: plan.links, tags: savedTags,
   });
   const savedRef = useRef(savedKey);
   const [name, setName] = useState(plan.name);
   const [notes, setNotes] = useState(plan.notes ?? "");
   const [links, setLinks] = useState<PlannedLink[]>(withOneRow(plan.links));
+  const [tags, setTags] = useState<string[]>(savedTags);
   const [editing, setEditing] = useState(autoFocusName);
 
   // Re-sync from the database when the other person edits the plan, but never
@@ -126,31 +169,41 @@ function PlanCard({
       setName(plan.name);
       setNotes(plan.notes ?? "");
       setLinks(withOneRow(plan.links));
+      setTags([...(plan.tags ?? [])].sort());
     }
-  }, [savedKey, editing, plan.name, plan.notes, plan.links]);
+  }, [savedKey, editing, plan.name, plan.notes, plan.links, plan.tags]);
 
   const cleaned = cleanLinks(links);
   const cleanNotes = notes.trim();
+  const cleanTags = [...tags].sort();
   const dirty =
     editing &&
-    JSON.stringify({ name: name.trim(), notes: cleanNotes, links: cleaned }) !== savedKey;
+    JSON.stringify({ name: name.trim(), notes: cleanNotes, links: cleaned, tags: cleanTags }) !== savedKey;
+
+  // Tags the picker offers: everything configured, plus any stale tag still
+  // assigned to this plan so it can be removed here.
+  const pickableTags = [
+    ...allTags,
+    ...tags.filter((t) => !allTags.includes(t)),
+  ];
 
   async function save() {
     if (dirty) {
       const trimmed = name.trim();
       await db.plannedExpenses.put({
-        ...plan, name: trimmed, notes: cleanNotes, links: cleaned,
+        ...plan, name: trimmed, notes: cleanNotes, links: cleaned, tags: cleanTags,
       });
       setName(trimmed);
       setNotes(cleanNotes);
       setLinks(withOneRow(cleaned));
+      setTags(cleanTags);
     }
     setEditing(false);
   }
 
   async function purchase() {
     const draft = {
-      ...plan, name: name.trim(), notes: cleanNotes, links: cleaned,
+      ...plan, name: name.trim(), notes: cleanNotes, links: cleaned, tags: cleanTags,
     };
     if (dirty) await db.plannedExpenses.put(draft);
     onPurchase(draft);
@@ -186,6 +239,13 @@ function PlanCard({
           <strong>{fmtMoney(plan.finalValue ?? 0)}</strong> · {who} ·{" "}
           {fmtDate(plan.purchasedDate ?? "")}
         </div>
+        {(plan.tags ?? []).length > 0 && (
+          <div className="plan-tags">
+            {plan.tags.map((t) => (
+              <span key={t} className="pill">{t}</span>
+            ))}
+          </div>
+        )}
         {plan.notes?.trim() && <p className="plan-notes">{plan.notes}</p>}
         {plan.links.length > 0 && <PlannedLinks links={plan.links} />}
         <div className="plan-actions">
@@ -205,6 +265,13 @@ function PlanCard({
     return (
       <div className="plan collapsed">
         <div className="plan-name">{plan.name || "Untitled planned expense"}</div>
+        {(plan.tags ?? []).length > 0 && (
+          <div className="plan-tags">
+            {plan.tags.map((t) => (
+              <span key={t} className="pill">{t}</span>
+            ))}
+          </div>
+        )}
         {plan.notes?.trim() && <p className="plan-notes">{plan.notes}</p>}
         <PlannedLinks links={plan.links} />
         <div className="plan-actions">
@@ -238,6 +305,27 @@ function PlanCard({
         onChange={(e) => setNotes(e.target.value)}
         disabled={busy}
       />
+
+      {pickableTags.length > 0 ? (
+        <div className="choice-row">
+          {pickableTags.map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={"choice" + (tags.includes(t) ? " active" : "")}
+              aria-pressed={tags.includes(t)}
+              onClick={() => setTags((s) => toggleTag(s, t))}
+              disabled={busy}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="plan-tags-hint">
+          Add areas in Settings to tag planned expenses.
+        </p>
+      )}
 
       <div className="plan-links">
         {links.map((l, i) => (

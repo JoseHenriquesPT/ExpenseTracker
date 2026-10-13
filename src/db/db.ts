@@ -184,6 +184,7 @@ export const DEFAULT_CONFIG: Omit<Config, "id"> = {
   ],
   billCategories: ["Streaming", "Musica", "Ginásio", "Tarifário"],
   investmentCategories: ["Trading 212"],
+  plannedTags: [],
   actions: ["Invested", "Withdraw"],
 };
 

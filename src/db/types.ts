@@ -84,6 +84,9 @@ export interface PlannedExpense {
   /** Free-text draft/notes about the item — hidden in the UI when empty. */
   notes?: string;
   links: PlannedLink[];
+  /** Areas this item belongs to, chosen from {@link Config.plannedTags}.
+   *  Used to filter the wishlist; never copied into the expense ledger. */
+  tags: string[];
   purchased: boolean;
   /** ISO date the item was bought — set when purchased. */
   purchasedDate?: string;
@@ -118,5 +121,7 @@ export interface Config {
   expenseCategories: string[];
   billCategories: string[];
   investmentCategories: string[];
+  /** Areas a planned expense can be tagged with, managed in Settings. */
+  plannedTags: string[];
   actions: InvestmentAction[];
 }

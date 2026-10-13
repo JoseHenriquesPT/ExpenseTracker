@@ -123,6 +123,7 @@ describe("validateBackup", () => {
         name: "New couch",
         links: [{ text: "Idea", url: "https://example.com/couch" }],
         purchased: false,
+        tags: [],
       },
     ]);
   });
@@ -143,6 +144,7 @@ describe("validateBackup", () => {
       name: "New couch",
       links: [],
       purchased: true,
+      tags: [],
       purchasedDate: "2026-07-01",
       finalValue: 499.99,
       scope: "Common",
@@ -158,7 +160,7 @@ describe("validateBackup", () => {
       })
     );
     expect(out.plannedExpenses[0]).toEqual({
-      name: "New couch", links: [], purchased: false,
+      name: "New couch", links: [], purchased: false, tags: [],
     });
   });
 
@@ -195,6 +197,57 @@ describe("validateBackup", () => {
         withRow("plannedExpenses", { name: "x", links: [], purchased: false, notes: 7 })
       )
     ).toThrow(/notes/);
+  });
+
+  it("keeps a planned expense's tags and defaults missing ones to an empty list", () => {
+    const tagged = validateBackup(
+      withRow("plannedExpenses", {
+        name: "New couch", links: [], purchased: false,
+        tags: ["Living room", "Sale"],
+      })
+    );
+    expect(tagged.plannedExpenses[0].tags).toEqual(["Living room", "Sale"]);
+
+    // Old exports have no `tags` key — they must still import as untagged.
+    expect(validateBackup(validBackup()).plannedExpenses[0].tags).toEqual([]);
+  });
+
+  it("rejects malformed planned tags with the row position", () => {
+    expect(() =>
+      validateBackup(
+        withRow("plannedExpenses", { name: "x", links: [], purchased: false, tags: "Sale" })
+      )
+    ).toThrow(/plannedExpenses\[0\]/);
+    expect(() =>
+      validateBackup(
+        withRow("plannedExpenses", { name: "x", links: [], purchased: false, tags: [1] })
+      )
+    ).toThrow(/tags/);
+  });
+
+  it("keeps config planned tags and defaults missing ones to an empty list", () => {
+    expect(validateBackup(validBackup()).config[0].plannedTags).toEqual([]);
+
+    const withTags = validateBackup(
+      withRow("config", {
+        key: "config", p1Name: "A", p2Name: "B",
+        incomeCategories: [], expenseCategories: [], billCategories: [],
+        investmentCategories: [], actions: [], plannedTags: ["Kitchen"],
+      })
+    );
+    expect(withTags.config[0].plannedTags).toEqual(["Kitchen"]);
+  });
+
+  it("rejects malformed config planned tags", () => {
+    expect(() =>
+      validateBackup(
+        withRow("config", {
+          key: "config", p1Name: "A", p2Name: "B",
+          incomeCategories: [], expenseCategories: [], billCategories: [],
+          investmentCategories: [], actions: [], plannedTags: [1],
+        })
+      )
+    ).toThrow(/plannedTags/);
   });
 
   it("requires date, price, valid scope and (for Common) payer on a purchased plan", () => {

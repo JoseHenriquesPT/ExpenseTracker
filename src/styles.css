@@ -198,6 +198,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .plan-links.read-only a:hover { text-decoration: underline; }
 .plan-notes { margin: 0; color: var(--muted); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .plan-notes-input { width: 100%; resize: vertical; min-height: 56px; }
+.plan-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.plan-tags .pill { color: var(--muted); }
+.plan-tags-hint { margin: 0; color: var(--muted); font-size: 13px; }
+.plan-filter { margin-left: auto; justify-content: flex-end; }
 .add-link { align-self: flex-start; font-size: 13px; padding: 5px 10px; }
 .plan-actions { display: flex; gap: 8px; align-items: center; margin-top: auto; padding-top: 4px; }
 .plan-delete { margin-left: auto; }

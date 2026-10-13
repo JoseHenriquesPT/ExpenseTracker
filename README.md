@@ -17,9 +17,28 @@ cp .env.example .env.local   # fill in your Supabase URL + anon key
 npm run dev                  # http://localhost:5173
 ```
 
-First-time backend setup: run the files in `supabase/migrations/` in order
-(`0001` → `0007`) in the Supabase SQL editor, add the allowed emails, and enable
-the Google auth provider. See the inline notes in `0001_init.sql`.
+First-time backend setup: run the files in `supabase/migrations/` in numeric
+order (`0001` first) in the Supabase SQL editor, add the allowed emails, and
+enable the Google auth provider. See the inline notes in `0001_init.sql`.
+
+### Applying migrations to the hosted database
+
+Migrations are plain SQL files applied in numeric order. To apply one directly
+instead of pasting it into the SQL editor:
+
+1. Put your production connection string (Dashboard → Connect → Session pooler
+   → URI) in `supabase/.env.prod.local` as `PROD_DB_URL=...`. The file is
+   gitignored.
+2. Apply a file:
+
+```powershell
+powershell -File scripts/apply-migration.ps1 supabase/migrations/0012_name.sql
+```
+
+The script runs the file in a single transaction (stops on the first error, so
+it either fully applies or changes nothing), asks for confirmation showing the
+target host, and uses psql via Docker — no local psql install needed. Add
+`-Force` to skip the prompt.
 
 To run the tests and the optimized build locally:
 

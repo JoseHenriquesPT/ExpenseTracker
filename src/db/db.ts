@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { touch } from "./live";
+import { getHouseholdId } from "./household";
 import { pushToast } from "../lib/toast";
 import type {
   ExpenseEntry, IncomeEntry, PersonalExpenseEntry, Investment,
@@ -12,6 +13,11 @@ import type {
 // This module keeps the small slice of the old Dexie API the pages relied on
 // (orderBy/reverse/toArray, get, add, put, delete, clear, bulkAdd) so the page
 // code barely changed. finance.ts / format.ts are untouched.
+//
+// Multi-tenant scoping: every read is filtered by the signed-in user's
+// household id and every write is stamped with it. RLS enforces the same rule
+// server-side; this makes the intent explicit and keeps one household's rows
+// out of another's queries even if a policy is ever loosened.
 
 /** App table key -> Postgres table name. */
 const TABLE = {
@@ -30,6 +36,9 @@ function stripId<T extends { id?: number }>(obj: T): Omit<T, "id"> {
   const { id: _omit, ...rest } = obj;
   return rest;
 }
+
+/** Column that ties every row to its household (migration 0008). */
+const HOUSEHOLD = "householdId";
 
 /** Fail fast on writes while offline, with a message the UI can show — instead
  *  of a confusing network error or a button that silently does nothing. */
@@ -68,7 +77,11 @@ export class SupaTable<T extends { id?: number }> {
   constructor(private readonly table: string) {}
 
   async toArray(): Promise<T[]> {
-    const { data, error } = await supabase.from(this.table).select("*");
+    const hid = getHouseholdId();
+    const { data, error } = await supabase
+      .from(this.table)
+      .select("*")
+      .eq(HOUSEHOLD, hid);
     if (error) throw error;
     return (data ?? []) as T[];
   }
@@ -76,9 +89,11 @@ export class SupaTable<T extends { id?: number }> {
   /** Mirror of Dexie's `orderBy(col)` with optional `.reverse()`. */
   orderBy(column: string) {
     const run = async (ascending: boolean): Promise<T[]> => {
+      const hid = getHouseholdId();
       const { data, error } = await supabase
         .from(this.table)
         .select("*")
+        .eq(HOUSEHOLD, hid)
         .order(column, { ascending });
       if (error) throw error;
       return (data ?? []) as T[];
@@ -90,7 +105,8 @@ export class SupaTable<T extends { id?: number }> {
   }
 
   async get(filter: Partial<T>): Promise<T | undefined> {
-    let q = supabase.from(this.table).select("*");
+    const hid = getHouseholdId();
+    let q = supabase.from(this.table).select("*").eq(HOUSEHOLD, hid);
     for (const [k, v] of Object.entries(filter)) q = q.eq(k, v as never);
     const { data, error } = await q.limit(1).maybeSingle();
     if (error) throw error;
@@ -99,9 +115,10 @@ export class SupaTable<T extends { id?: number }> {
 
   /** Raw insert of one row (no guard/toast) — shared by add() and put(). */
   private async insertOne(obj: T): Promise<number> {
+    const hid = getHouseholdId();
     const { data, error } = await supabase
       .from(this.table)
-      .insert(stripId(obj) as never)
+      .insert({ ...stripId(obj), [HOUSEHOLD]: hid } as never)
       .select("id")
       .single();
     if (error) throw error;
@@ -116,10 +133,12 @@ export class SupaTable<T extends { id?: number }> {
   async put(obj: T): Promise<number> {
     return guardWrite(async () => {
       if (obj.id == null) return this.insertOne(obj);
+      const hid = getHouseholdId();
       const { error } = await supabase
         .from(this.table)
         .update(stripId(obj) as never)
-        .eq("id", obj.id);
+        .eq("id", obj.id)
+        .eq(HOUSEHOLD, hid);
       if (error) throw error;
       touch();
       return obj.id;
@@ -128,7 +147,12 @@ export class SupaTable<T extends { id?: number }> {
 
   async delete(id: number): Promise<void> {
     return guardWrite(async () => {
-      const { error } = await supabase.from(this.table).delete().eq("id", id);
+      const hid = getHouseholdId();
+      const { error } = await supabase
+        .from(this.table)
+        .delete()
+        .eq("id", id)
+        .eq(HOUSEHOLD, hid);
       if (error) throw error;
       touch();
     });
@@ -137,7 +161,11 @@ export class SupaTable<T extends { id?: number }> {
   /** Delete every row (used by backup restore). */
   async clear(): Promise<void> {
     return guardWrite(async () => {
-      const { error } = await supabase.from(this.table).delete().neq("id", -1);
+      const hid = getHouseholdId();
+      const { error } = await supabase
+        .from(this.table)
+        .delete()
+        .eq(HOUSEHOLD, hid);
       if (error) throw error;
       touch();
     });
@@ -146,7 +174,9 @@ export class SupaTable<T extends { id?: number }> {
   async bulkAdd(objs: T[]): Promise<void> {
     if (!objs.length) return;
     return guardWrite(async () => {
-      const { error } = await supabase.from(this.table).insert(objs.map(stripId) as never);
+      const hid = getHouseholdId();
+      const rows = objs.map((o) => ({ ...stripId(o), [HOUSEHOLD]: hid }));
+      const { error } = await supabase.from(this.table).insert(rows as never);
       if (error) throw error;
       touch();
     });
@@ -188,20 +218,21 @@ export const DEFAULT_CONFIG: Omit<Config, "id"> = {
   actions: ["Invested", "Withdraw"],
 };
 
-/** Ensure the singleton config row exists; returns it. Safe under a race:
- *  if another client inserts first, the unique `key` conflict is recovered. */
+/** Ensure the signed-in household's config row exists; returns it. Safe under a
+ *  race: if another client inserts first, the unique (householdId, key)
+ *  conflict is recovered. */
 export async function ensureConfig(): Promise<Config> {
-  const existing = await db.config.get({ key: "config" } as Partial<Config>);
+  const existing = await db.config.get({ key: "config" });
   if (existing) return existing;
 
   const { data, error } = await supabase
     .from("config")
-    .insert(DEFAULT_CONFIG as never)
+    .insert({ ...DEFAULT_CONFIG, [HOUSEHOLD]: getHouseholdId() } as never)
     .select("*")
     .single();
 
   if (error) {
-    const again = await db.config.get({ key: "config" } as Partial<Config>);
+    const again = await db.config.get({ key: "config" });
     if (again) return again;
     throw error;
   }

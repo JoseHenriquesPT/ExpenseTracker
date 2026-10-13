@@ -16,8 +16,9 @@ distinct signed-in users before opening signups.
 - [x] `is_member(householdId)` security-definer function; rewrite all RLS policies
       (`0001`, `0002`, `0003`, `0006`) from `is_allowed()` to membership. Keep the
       allowlist as the outer beta gate for now.
-- [ ] Client scoping: household-aware `SupaTable` (reads filtered, writes injected),
-      per-household `ensureConfig()`, realtime filter by `householdId`.
+- [x] Client scoping: household-aware `SupaTable` (reads filtered, writes injected),
+      per-household `ensureConfig()`, realtime filter by `householdId`
+      (client unit tests in `src/db/db.test.ts` / `household.test.ts`).
 - [x] Scope `import_backup()` to the caller's household (`0009`) — previously it
       deleted every tenant's rows.
 - [ ] Exit criteria: isolation tests pass; the current pair sees zero behavioural change.

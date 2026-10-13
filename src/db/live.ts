@@ -1,5 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
+import { onHouseholdChange } from "./household";
 import { pushToast } from "../lib/toast";
 
 // A tiny reactive layer powering every page's live data.
@@ -20,21 +22,42 @@ export function touch(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Realtime channel — opened only after sign-in.
+// Realtime channel — opened once the session AND the household are known.
 //
 // RLS-protected postgres_changes bind the user's JWT at subscribe time, so a
 // channel created before the session is restored would never receive the other
-// person's edits. Supabase calls setAuth() internally on SIGNED_IN, and that
-// listener was registered first, so by the time ours runs the token is ready.
+// person's edits. The householdId filter stops other tenants' changes from
+// waking every query; migration 0012 sets replica identity full so DELETE
+// events (which otherwise carry only the primary key) pass that filter too.
 // ---------------------------------------------------------------------------
 
+let session: Session | null = null;
+let householdId: number | null = null;
 let channel: ReturnType<typeof supabase.channel> | null = null;
+let channelHouseholdId: number | null = null;
 
-function startLiveSync(): void {
-  if (channel) return;
+function stopLiveSync(): void {
+  channelHouseholdId = null;
+  if (!channel) return;
+  supabase.removeChannel(channel);
+  channel = null;
+}
+
+function syncLiveSync(): void {
+  if (!session || householdId == null) {
+    stopLiveSync();
+    return;
+  }
+  if (channel && channelHouseholdId === householdId) return;
+  stopLiveSync();
+  channelHouseholdId = householdId;
   channel = supabase
     .channel("db-changes")
-    .on("postgres_changes", { event: "*", schema: "public" }, () => touch())
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", filter: `householdId=eq.${householdId}` },
+      () => touch()
+    )
     .subscribe((status) => {
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         console.warn("Realtime channel unavailable:", status);
@@ -42,21 +65,23 @@ function startLiveSync(): void {
     });
 }
 
-function stopLiveSync(): void {
-  if (!channel) return;
-  supabase.removeChannel(channel);
-  channel = null;
-}
-
-supabase.auth.onAuthStateChange((_event, session) => {
-  if (session) startLiveSync();
-  else stopLiveSync();
+supabase.auth.onAuthStateChange((_event, s) => {
+  session = s;
+  syncLiveSync();
 });
 
 // Covers a session restored before this module loaded (e.g. a hot reload):
 // onAuthStateChange won't replay that event for a fresh listener.
 supabase.auth.getSession().then(({ data }) => {
-  if (data.session) startLiveSync();
+  session = data.session;
+  syncLiveSync();
+});
+
+// AuthGate resolves the household after sign-in; a change re-targets the
+// filter, and clearing it on sign-out closes the channel.
+onHouseholdChange((id) => {
+  householdId = id;
+  syncLiveSync();
 });
 
 // ---------------------------------------------------------------------------

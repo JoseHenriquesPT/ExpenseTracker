@@ -65,6 +65,19 @@ export async function joinHousehold(code: string): Promise<void> {
   await runHouseholdRpc("join_household", { p_code: code });
 }
 
+/** Enter a partner's code from Settings while already in your own household:
+ *  the server moves your rows into their household (retagged P1 -> P2), then
+ *  removes your old household. Only works when you're alone in yours. */
+export async function mergeIntoHousehold(code: string): Promise<void> {
+  await runHouseholdRpc("merge_into_household", { p_code: code });
+}
+
+/** Break up the household. Every member keeps a copy of the past months' data
+ *  in their own new single-person household; the current month is deleted. */
+export async function dismantleHousehold(): Promise<void> {
+  await runHouseholdRpc("dismantle_household", {});
+}
+
 /** Owner-only: turn a single household into a couple one (so it can invite). */
 export async function upgradeToCouple(): Promise<void> {
   await runHouseholdRpc("set_household_kind", { p_kind: "couple" });

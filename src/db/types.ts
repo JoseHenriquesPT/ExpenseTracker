@@ -111,6 +111,9 @@ export interface SettlementRecord {
   amount: number;
 }
 
+/** How the shared pool is divided at the end of a period. */
+export type SettlementMethod = "proportional" | "custom";
+
 /** Data Config sheet — editable category & option master lists + person names. */
 export interface Config {
   id?: number;
@@ -124,4 +127,9 @@ export interface Config {
   /** Areas a planned expense can be tagged with, managed in Settings. */
   plannedTags: string[];
   actions: InvestmentAction[];
+  /** "proportional" = income-based fair share (the original model);
+   *  "custom" = the saved {@link customShareP1} percentage. */
+  settlementMethod: SettlementMethod;
+  /** P1's share of the shared pool, 0–100 — only used in custom mode. */
+  customShareP1: number;
 }

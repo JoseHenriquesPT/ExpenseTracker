@@ -6,8 +6,8 @@ vi.mock("./supabase", () => ({ supabase: { rpc, from } }));
 vi.mock("./live", () => ({ touch: vi.fn() }));
 
 import {
-  createHousehold, createInvite, fetchHousehold, joinHousehold, listInvites,
-  revokeInvite, upgradeToCouple,
+  createHousehold, createInvite, dismantleHousehold, fetchHousehold, joinHousehold,
+  listInvites, mergeIntoHousehold, revokeInvite, upgradeToCouple,
 } from "./householdApi";
 import { getHousehold, getHouseholdSnapshot, setHousehold } from "./household";
 import { type FakeQuery, queueQuery } from "./fakeSupabase";
@@ -98,6 +98,53 @@ describe("joinHousehold", () => {
       join_household: { data: null, error: { message: "That invite code is not valid." } },
     });
     await expect(joinHousehold("NOPE")).rejects.toThrow("That invite code is not valid.");
+  });
+});
+
+describe("mergeIntoHousehold", () => {
+  it("passes the code through and refreshes to the partner's household", async () => {
+    rpcHandler({
+      merge_into_household: { data: 3, error: null },
+      current_household: {
+        data: [{ ...ROW, kind: "couple", memberCount: 2 }],
+        error: null,
+      },
+    });
+    await mergeIntoHousehold("ABC123");
+    expect(rpc).toHaveBeenCalledWith("merge_into_household", { p_code: "ABC123" });
+    expect(getHousehold()).toMatchObject({ kind: "couple", memberCount: 2 });
+  });
+
+  it("surfaces the database error message", async () => {
+    rpcHandler({
+      merge_into_household: {
+        data: null,
+        error: { message: "Your household has another member — dismantle it first." },
+      },
+    });
+    await expect(mergeIntoHousehold("NOPE")).rejects.toThrow(/another member/);
+  });
+});
+
+describe("dismantleHousehold", () => {
+  it("calls the RPC and clears the module household", async () => {
+    setHousehold({ id: 3, name: "Beta", kind: "couple", memberCount: 2 });
+    rpcHandler({
+      dismantle_household: { data: null, error: null },
+      current_household: { data: [], error: null },
+    });
+    await dismantleHousehold();
+    expect(rpc).toHaveBeenCalledWith("dismantle_household", {});
+    expect(getHouseholdSnapshot()).toBeNull();
+  });
+
+  it("surfaces failures and keeps the household", async () => {
+    setHousehold({ id: 3, name: "Beta", kind: "couple", memberCount: 2 });
+    rpcHandler({
+      dismantle_household: { data: null, error: { message: "Sign in first." } },
+    });
+    await expect(dismantleHousehold()).rejects.toThrow("Sign in first.");
+    expect(getHouseholdSnapshot()).not.toBeNull();
   });
 });
 

@@ -214,6 +214,8 @@ export const DEFAULT_CONFIG: Omit<Config, "id"> = {
   investmentCategories: ["Trading 212"],
   plannedTags: ["House", "Priority", "Kitchen", "Living Room/Office", "Bedroom"],
   actions: ["Invested", "Withdraw"],
+  settlementMethod: "proportional",
+  customShareP1: 50,
 };
 
 /** Ensure the signed-in household's config row exists; returns it. Safe under a

@@ -9,7 +9,7 @@ import type { SettlementRecord } from "../db/types";
 import {
   buildIncomeSplits, buildOverview, computeSettlement,
   monthStart, monthEnd, yearStart, yearEnd, toISO,
-  type CategoryTotal, type IncomeSplit, type Settlement,
+  type CategoryTotal, type IncomeSplit, type Settlement, type SplitSettings,
 } from "../lib/finance";
 import { fmtMoney } from "../lib/format";
 import { modeText, MONTHS, monthName, personName, yearOptions } from "../lib/labels";
@@ -70,18 +70,25 @@ export default function Dashboard() {
 
   // Per-person income split for the headline pies: fair share of the shared
   // spending, what they invested and what's left over.
+  const split: SplitSettings | undefined = config
+    ? {
+        method: config.settlementMethod ?? "proportional",
+        customShareP1: config.customShareP1 ?? 50,
+      }
+    : undefined;
+
   const splits = useMemo(() => {
     if (!ready) return null;
     return buildIncomeSplits(
-      { income, expenses, personalExpenses: personal, bills },
+      { income, expenses, personalExpenses: personal, bills, split },
       start, end
     );
-  }, [ready, start, end, income, expenses, personal, bills]);
+  }, [ready, start, end, income, expenses, personal, bills, split?.method, split?.customShareP1]);
 
   const settlement = useMemo(() => {
     if (!ready) return null;
-    return computeSettlement({ income, expenses, bills, settlements }, start, end);
-  }, [ready, start, end, income, expenses, bills, settlements]);
+    return computeSettlement({ income, expenses, bills, settlements, split }, start, end);
+  }, [ready, start, end, income, expenses, bills, settlements, split?.method, split?.customShareP1]);
 
   const years = useMemo(() => yearOptions(), []);
 
@@ -284,6 +291,13 @@ function SettlementPanel({
           )}
         </div>
       </div>
+
+      {s.usedCustomShare && (
+        <p className="subtitle" style={{ marginTop: 8 }}>
+          Custom split — {p1} pays {pct(s.shareP1)} and {p2} pays {pct(s.shareP2)} of
+          the shared pool.
+        </p>
+      )}
 
       {s.usedFallbackShare && (
         <p className="subtitle" style={{ marginTop: 8 }}>

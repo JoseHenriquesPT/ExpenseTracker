@@ -439,3 +439,111 @@ describe("buildIncomeSplits", () => {
     });
   });
 });
+
+describe("computeSettlement — custom split", () => {
+  const start = "2026-01-01";
+  const end = "2026-01-31";
+  const base = {
+    income: [income(start, 3000, "P1"), income(start, 1000, "P2")],
+    expenses: [expense(start, 400, "P1"), expense(start, 400, "P2")],
+    bills: [],
+  };
+
+  it("uses the saved custom percentage instead of income shares", () => {
+    const s = computeSettlement(
+      { ...base, split: { method: "custom", customShareP1: 25 } },
+      start, end
+    );
+    expect(s.shareP1).toBeCloseTo(0.25);
+    expect(s.shareP2).toBeCloseTo(0.75);
+    expect(s.fairP1).toBe(200); // 25% of the 800 pool
+    expect(s.fairP2).toBe(600);
+    expect(s.balanceP1).toBe(200);
+    expect(s).toMatchObject({
+      from: "P2", to: "P1", amount: 200,
+      usedFallbackShare: false, usedCustomShare: true,
+    });
+  });
+
+  it("ignores the custom percentage while the method is proportional", () => {
+    const s = computeSettlement(
+      { ...base, split: { method: "proportional", customShareP1: 25 } },
+      start, end
+    );
+    expect(s.shareP1).toBeCloseTo(0.75);
+    expect(s.usedCustomShare).toBe(false);
+  });
+
+  it("keeps using income shares with no split setting (existing rows)", () => {
+    const s = computeSettlement(base, start, end);
+    expect(s.shareP1).toBeCloseTo(0.75);
+    expect(s.usedCustomShare).toBe(false);
+  });
+
+  it("applies a custom split even with no income — no 50/50 fallback", () => {
+    const s = computeSettlement(
+      {
+        income: [],
+        expenses: [expense(start, 100, "P1")],
+        bills: [],
+        split: { method: "custom", customShareP1: 100 },
+      },
+      start, end
+    );
+    expect(s.usedFallbackShare).toBe(false);
+    expect(s.usedCustomShare).toBe(true);
+    expect(s.shareP1).toBe(1);
+    expect(s).toMatchObject({ from: null, to: null, amount: 0 });
+  });
+
+  it("clamps a custom percentage outside 0–100", () => {
+    const hi = computeSettlement(
+      { ...base, split: { method: "custom", customShareP1: 150 } },
+      start, end
+    );
+    expect(hi.shareP1).toBe(1);
+
+    const lo = computeSettlement(
+      { ...base, split: { method: "custom", customShareP1: -20 } },
+      start, end
+    );
+    expect(lo.shareP1).toBe(0);
+  });
+});
+
+describe("buildIncomeSplits — custom split", () => {
+  const start = "2026-01-01";
+  const end = "2026-01-31";
+
+  it("computes the common share from the custom percentage", () => {
+    const { p1, p2 } = buildIncomeSplits(
+      {
+        income: [income(start, 3000, "P1"), income(start, 1000, "P2")],
+        expenses: [expense(start, 400, "P1"), savedCommon(start, 100, "P2")],
+        personalExpenses: [],
+        bills: [bill(start, 100, "Common", "P2")],
+        split: { method: "custom", customShareP1: 20 },
+      },
+      start, end
+    );
+    // 20% of the 500 shared spend; 20% of the 100 common savings.
+    expect(p1).toMatchObject({ expenses: 100, invested: 20 });
+    expect(p2).toMatchObject({ expenses: 400, invested: 80 });
+    expect(p1.saved).toBeCloseTo(3000 - 100 - 20);
+    expect(p2.saved).toBeCloseTo(1000 - 400 - 80);
+  });
+
+  it("keeps income-proportional shares while the method is proportional", () => {
+    const { p1 } = buildIncomeSplits(
+      {
+        income: [income(start, 3000, "P1"), income(start, 1000, "P2")],
+        expenses: [expense(start, 400, "P1")],
+        personalExpenses: [],
+        bills: [],
+        split: { method: "proportional", customShareP1: 20 },
+      },
+      start, end
+    );
+    expect(p1.expenses).toBe(300); // 75% of 400
+  });
+});

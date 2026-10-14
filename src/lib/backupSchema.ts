@@ -29,6 +29,7 @@ export class BackupValidationError extends Error {
 const PEOPLE = ["P1", "P2"] as const;
 const SCOPES = ["P1", "P2", "Common"] as const;
 const ACTIONS = ["Invested", "Withdraw"] as const;
+const SETTLEMENT_METHODS = ["proportional", "custom"] as const;
 
 type Row = Record<string, unknown>;
 
@@ -86,6 +87,17 @@ function optionalPositive(row: Row, key: string, where: string): number | undefi
     fail(where, `"${key}" must be a number`);
   }
   return v > 0 ? v : undefined;
+}
+
+/** A 0–100 percentage; absent/null takes the fallback, junk types are errors,
+ *  and out-of-range numbers clamp instead of failing the whole backup. */
+function percentField(row: Row, key: string, where: string, fallback: number): number {
+  const v = row[key];
+  if (v === undefined || v === null) return fallback;
+  if (typeof v !== "number" || !Number.isFinite(v)) {
+    fail(where, `"${key}" must be a number`);
+  }
+  return Math.min(100, Math.max(0, v));
 }
 
 function enumField<T extends string>(
@@ -265,6 +277,12 @@ export function validateBackup(input: unknown): BackupData {
       investmentCategories: stringList(row, "investmentCategories", where),
       plannedTags: stringList(row, "plannedTags", where),
       actions: actions.length ? actions : [...ACTIONS],
+      // Old exports predate the settlement settings — default them.
+      settlementMethod:
+        row.settlementMethod === undefined || row.settlementMethod === null
+          ? ("proportional" as const)
+          : enumField(row, "settlementMethod", SETTLEMENT_METHODS, where),
+      customShareP1: percentField(row, "customShareP1", where, 50),
     };
   });
 

@@ -1,8 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../db/supabase";
-import { fetchHousehold } from "../db/householdApi";
-import { setHousehold as setActiveHousehold, type Household } from "../db/household";
+import { fetchHousehold, refreshHousehold } from "../db/householdApi";
+import {
+  getHouseholdSnapshot, onHouseholdChange,
+  setHousehold as setActiveHousehold, type Household,
+} from "../db/household";
 import { toMessage } from "../lib/errors";
 import Centered from "../components/Centered";
 import Onboarding from "./Onboarding";
@@ -61,6 +64,41 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     // TOKEN_REFRESHED (roughly hourly) with a fresh session object for the same
     // user, and re-running would flash the checking screen and refetch.
   }, [session?.user.id, attempt]);
+
+  // Mirror module-state changes (a partner joining, a merge or a dismantle
+  // from Settings) into the gate: a cleared household drops to Onboarding, a
+  // new one re-renders the app on the fresh data.
+  useEffect(() => {
+    if (!session) return;
+    return onHouseholdChange(() => {
+      setHouseholdState(getHouseholdSnapshot());
+    });
+  }, [session?.user.id]);
+
+  // Membership changes for the active household arrive live: the other device
+  // sees the second member join (the Settings box disappears), and a dismantle
+  // hands each member their own copy without a reload.
+  useEffect(() => {
+    if (!household?.id) return;
+    const channel = supabase
+      .channel(`household-members-${household.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "household_members",
+          filter: `householdId=eq.${household.id}`,
+        },
+        () => {
+          refreshHousehold().catch(() => {});
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [household?.id]);
 
   if (loading) return <Centered>Loading…</Centered>;
   if (!session) return <SignIn />;

@@ -27,14 +27,23 @@ h2 { margin: 0 0 4px; }
 .subtitle { color: var(--muted); margin: 0 0 20px; }
 
 /* ---- Home hub ---- */
+/* Same palette as the Bills/Planned/Income tabs, sized like the ledger's
+   Common/Income/Individual buttons so it reads as a button, not a whisper. */
 .back-home {
   display: inline-block;
-  color: var(--muted);
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--text);
   text-decoration: none;
   font-size: 13px;
+  font-weight: 600;
   margin-bottom: 10px;
+  transition: border-color .12s ease, background .12s ease, transform .08s ease;
 }
-.back-home:hover { color: var(--text); }
+.back-home:hover { border-color: var(--accent); background: var(--panel-2); }
+.back-home:active { transform: scale(.98); }
 .home-head { margin-bottom: 12px; }
 .home-brand { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
 .home-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
@@ -73,6 +82,8 @@ button { cursor: pointer; }
 button:hover { border-color: var(--accent); }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.danger { color: var(--red); }
+button.danger-solid { background: var(--red); border-color: var(--red); color: #fff; font-weight: 600; }
+button.danger-solid:hover { border-color: var(--red); filter: brightness(1.08); }
 button.ghost { background: transparent; }
 input::placeholder, textarea::placeholder { color: var(--muted); }
 button:disabled, input:disabled, select:disabled, textarea:disabled {
@@ -157,6 +168,25 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   color: #fff;
   box-shadow: 0 0 0 3px rgba(108, 140, 255, .28);
 }
+
+/* ---- Settlement methods (Settings) ---- */
+.split-slider { margin-top: 16px; max-width: 440px; }
+.split-slider label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+input[type="range"] {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+input[type="range"]:disabled { accent-color: var(--muted); cursor: not-allowed; }
 
 /* ---- Planned expenses ---- */
 .plan-grid {
@@ -287,7 +317,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 .modal-title { margin: 0 0 8px; font-size: 16px; }
-.modal-message { margin: 0 0 20px; color: var(--muted); line-height: 1.5; }
+.modal-message { margin: 0 0 12px; color: var(--muted); line-height: 1.5; }
+.modal input { width: 100%; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
 .modal-actions button { padding: 9px 16px; }
 .modal-actions .danger { background: var(--red); border-color: var(--red); color: #fff; }

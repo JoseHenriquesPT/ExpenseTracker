@@ -3,10 +3,11 @@ import { useHousehold, useLiveQuery } from "../db/live";
 import { db, ensureConfig } from "../db/db";
 import { supabase } from "../db/supabase";
 import {
-  createInvite, listInvites, revokeInvite, upgradeToCouple,
+  createInvite, dismantleHousehold, listInvites, mergeIntoHousehold,
+  revokeInvite, upgradeToCouple,
 } from "../db/householdApi";
 import type { Household } from "../db/household";
-import type { Config } from "../db/types";
+import type { Config, SettlementMethod } from "../db/types";
 import { exportBackup, importBackup, parseBackupFile } from "../lib/backup";
 import { describeBackup } from "../lib/backupSchema";
 import { confirm } from "../lib/confirm";
@@ -15,6 +16,7 @@ import { pushToast } from "../lib/toast";
 import { useBusy } from "../lib/useBusy";
 import { useOnline } from "../lib/useOnline";
 import BackHome from "../components/BackHome";
+import TypedConfirmDialog from "../components/TypedConfirmDialog";
 
 type ListKey = Extract<
   keyof Config,
@@ -35,8 +37,10 @@ export default function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState("");
   const [email, setEmail] = useState("");
+  const [confirmingDismantle, setConfirmingDismantle] = useState(false);
   const { busy: importing, run: runImport } = useBusy();
   const { busy: savingNames, run: runSaveNames } = useBusy();
+  const { busy: dismantling, run: runDismantle } = useBusy();
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ""));
   }, []);
@@ -103,6 +107,15 @@ export default function SettingsPage() {
     } finally {
       // Allow re-selecting the same file next time.
       if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function dismantle() {
+    try {
+      await dismantleHousehold();
+      setConfirmingDismantle(false);
+    } catch (e) {
+      pushToast(toMessage(e), "error");
     }
   }
 
@@ -181,6 +194,10 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {household?.kind !== "single" && (
+        <SettlementMethodsPanel config={config} online={online} />
+      )}
+
       <div className="panel" style={{ marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>Backup</h3>
         <div className="toolbar" style={{ marginBottom: 0 }}>
@@ -217,11 +234,45 @@ export default function SettingsPage() {
           />
         ))}
       </div>
+
+      <div className="panel" style={{ marginTop: 24 }}>
+        <h3 style={{ marginTop: 0 }}>Dismantle household</h3>
+        <p className="subtitle">
+          Breaks up the household. Both members keep their past months' data in
+          their own account; everything recorded in the current month is deleted.
+        </p>
+        <button
+          className="danger-solid"
+          disabled={!online || dismantling}
+          onClick={() => setConfirmingDismantle(true)}
+        >
+          Dismantle Household
+        </button>
+      </div>
+
+      <TypedConfirmDialog
+        open={confirmingDismantle}
+        title="Dismantle household"
+        message={
+          "This breaks up the household. Both members keep their past months' " +
+          "data — each one gets their own copy in a new single-person household — " +
+          "but everything recorded in the current month is deleted, for both people. " +
+          "This can't be undone."
+        }
+        phrase="I want to dismantle household"
+        confirmLabel="Dismantle Household"
+        busyLabel="Dismantling…"
+        busy={dismantling}
+        onCancel={() => setConfirmingDismantle(false)}
+        onConfirm={() => runDismantle(dismantle)}
+      />
     </div>
   );
 }
 
 function HouseholdPanel({ household, online }: { household: Household | null; online: boolean }) {
+  // Both people set: there is nothing left to manage, so the box disappears.
+  if (household && household.memberCount >= 2) return null;
   return (
     <div className="panel" style={{ marginBottom: 24 }}>
       <h3 style={{ marginTop: 0 }}>Household</h3>
@@ -231,13 +282,16 @@ function HouseholdPanel({ household, online }: { household: Household | null; on
 }
 
 /** One guarded branch per state, in order: no household yet, single (offer the
- *  upgrade), full couple, otherwise invite management. */
+ *  upgrade), invite/join while alone, otherwise nothing (full households hide
+ *  the whole box at {@link HouseholdPanel}). */
 function HouseholdBody({ household, online }: { household: Household | null; online: boolean }) {
   const invites = useLiveQuery(
     () => listInvites(),
     [household?.id, household?.memberCount]
   );
   const { busy, run } = useBusy();
+  const [joinCode, setJoinCode] = useState("");
+  const { busy: joining, run: runJoin } = useBusy();
 
   /** Run a household action with double-submit guard + error toast. */
   function action(fn: () => Promise<void>) {
@@ -296,8 +350,8 @@ function HouseholdBody({ household, online }: { household: Household | null; onl
   return (
     <>
       <p className="subtitle">
-        Invite your partner: send them the code, and they choose
-        “Join” on the welcome screen.
+        Invite your partner: send them the code. They can enter it on the
+        welcome screen or here in Settings.
       </p>
       {invites.length === 0 ? (
         <button
@@ -324,6 +378,37 @@ function HouseholdBody({ household, online }: { household: Household | null; onl
           ))}
         </div>
       )}
+
+      <div className="field" style={{ marginTop: 16 }}>
+        <label>Got a code from your partner? Join their household instead</label>
+        <div className="toolbar" style={{ marginTop: 4, marginBottom: 0 }}>
+          <input
+            value={joinCode}
+            placeholder="Invite code"
+            disabled={!online || joining}
+            onChange={(e) => setJoinCode(e.target.value)}
+          />
+          <button
+            className="primary"
+            disabled={!online || joining || !joinCode.trim()}
+            onClick={() =>
+              runJoin(async () => {
+                try {
+                  await mergeIntoHousehold(joinCode);
+                  setJoinCode("");
+                } catch (e) {
+                  pushToast(toMessage(e), "error");
+                }
+              })
+            }
+          >
+            {joining ? "Joining…" : "Join"}
+          </button>
+        </div>
+        <p className="subtitle" style={{ margin: "6px 0 0" }}>
+          Your entries move with you and are tagged P2 — your partner stays P1.
+        </p>
+      </div>
     </>
   );
 }
@@ -361,6 +446,108 @@ function CategoryEditor({
           }}
         />
         <button onClick={() => { onAdd(draft); setDraft(""); }} disabled={disabled}>Add</button>
+      </div>
+    </div>
+  );
+}
+
+/** How the shared pool is divided: income-proportional (the original model) or
+ *  a custom percentage for P1, controlled by the slider. Hidden in single mode
+ *  by the caller — there is no shared pool to divide. */
+function SettlementMethodsPanel({ config, online }: { config: Config; online: boolean }) {
+  const { busy: saving, run: runSave } = useBusy();
+  // Tolerate rows written before migration 0015 (columns absent).
+  const storedMethod: SettlementMethod = config.settlementMethod ?? "proportional";
+  const storedShare = config.customShareP1 ?? 50;
+  const [draft, setDraft] = useState<{ method: SettlementMethod; shareP1: number } | null>(null);
+
+  // Seed from the stored config, and re-sync when it changes *unless* there
+  // are unsaved edits (don't clobber) — same pattern as the name editor.
+  useEffect(() => {
+    setDraft((d) =>
+      d && (d.method !== storedMethod || d.shareP1 !== storedShare)
+        ? d
+        : { method: storedMethod, shareP1: storedShare }
+    );
+  }, [storedMethod, storedShare]);
+
+  const dirty =
+    !!draft && (draft.method !== storedMethod || draft.shareP1 !== storedShare);
+
+  async function save() {
+    if (config.id == null || !draft || !dirty) return;
+    await db.config.put({
+      ...config,
+      settlementMethod: draft.method,
+      customShareP1: draft.shareP1,
+    });
+  }
+
+  const shareP1 = draft?.shareP1 ?? storedShare;
+  const isCustom = draft?.method === "custom";
+
+  function pick(method: SettlementMethod) {
+    setDraft((d) => ({ method, shareP1: d?.shareP1 ?? storedShare }));
+  }
+
+  return (
+    <div className="panel" style={{ marginBottom: 24 }}>
+      <h3 style={{ marginTop: 0 }}>Settlement methods</h3>
+      <p className="subtitle">How the shared pool is divided at the end of a period.</p>
+
+      <div className="choice-row" role="group" aria-label="Settlement method">
+        <button
+          type="button"
+          className={draft?.method === "proportional" ? "choice active" : "choice"}
+          aria-pressed={draft?.method === "proportional"}
+          disabled={!online || !draft}
+          onClick={() => pick("proportional")}
+        >
+          Proportional Effort Split
+        </button>
+        <button
+          type="button"
+          className={draft?.method === "custom" ? "choice active" : "choice"}
+          aria-pressed={draft?.method === "custom"}
+          disabled={!online || !draft}
+          onClick={() => pick("custom")}
+        >
+          Custom Split
+        </button>
+      </div>
+
+      <div className="split-slider">
+        <label>
+          {config.p1Name} pays {shareP1}% · {config.p2Name} pays {100 - shareP1}%
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={shareP1}
+          disabled={!online || !isCustom}
+          onChange={(e) => {
+            const share = Number(e.target.value);
+            setDraft((d) => ({ method: d?.method ?? "custom", shareP1: share }));
+          }}
+        />
+        <p className="subtitle" style={{ margin: "4px 0 12px" }}>
+          {isCustom
+            ? "Each person pays exactly their chosen percentage of the shared pool."
+            : "Each person pays their share of the household income (50/50 when no income is recorded)."}
+        </p>
+      </div>
+
+      <div className="toolbar" style={{ marginBottom: 0 }}>
+        <button
+          className="primary"
+          disabled={!online || !dirty || saving}
+          onClick={() => runSave(save)}
+        >
+          Save
+        </button>
+        {dirty && <span className="subtitle" style={{ margin: 0 }}>Unsaved changes</span>}
       </div>
     </div>
   );

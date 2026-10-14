@@ -333,4 +333,49 @@ describe("validateBackup", () => {
       validateBackup(withRow("config", { p1Name: "A", p2Name: "B", incomeCategories: [1], expenseCategories: [], billCategories: [], investmentCategories: [], actions: [] }))
     ).toThrow(/incomeCategories/);
   });
+
+  it("defaults missing settlement settings to proportional 50/50", () => {
+    const out = validateBackup(validBackup());
+    expect(out.config[0].settlementMethod).toBe("proportional");
+    expect(out.config[0].customShareP1).toBe(50);
+  });
+
+  it("keeps valid settlement settings", () => {
+    const out = validateBackup(
+      withRow("config", {
+        key: "config", p1Name: "A", p2Name: "B",
+        incomeCategories: [], expenseCategories: [], billCategories: [],
+        investmentCategories: [], actions: [],
+        settlementMethod: "custom", customShareP1: 65,
+      })
+    );
+    expect(out.config[0].settlementMethod).toBe("custom");
+    expect(out.config[0].customShareP1).toBe(65);
+  });
+
+  it("rejects an unknown settlement method", () => {
+    expect(() =>
+      validateBackup(
+        withRow("config", {
+          key: "config", p1Name: "A", p2Name: "B",
+          incomeCategories: [], expenseCategories: [], billCategories: [],
+          investmentCategories: [], actions: [],
+          settlementMethod: "equal",
+        })
+      )
+    ).toThrow(/settlementMethod/);
+  });
+
+  it("clamps a custom share outside 0–100 and rejects junk types", () => {
+    const config = (customShareP1: unknown) =>
+      withRow("config", {
+        key: "config", p1Name: "A", p2Name: "B",
+        incomeCategories: [], expenseCategories: [], billCategories: [],
+        investmentCategories: [], actions: [],
+        settlementMethod: "custom", customShareP1,
+      });
+    expect(validateBackup(config(150)).config[0].customShareP1).toBe(100);
+    expect(validateBackup(config(-10)).config[0].customShareP1).toBe(0);
+    expect(() => validateBackup(config("high"))).toThrow(/customShareP1/);
+  });
 });

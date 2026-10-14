@@ -1,6 +1,6 @@
 import type {
   Entry, ExpenseEntry, IncomeEntry, Investment, Bill,
-  PersonalExpenseEntry, SettlementRecord, Person, Scope,
+  PersonalExpenseEntry, SettlementRecord, Person, Scope, SettlementMethod,
 } from "../db/types";
 
 // ---------------------------------------------------------------------------
@@ -306,6 +306,29 @@ export function summarizeInvestments(rows: Investment[]): InvestmentSummary {
 // Two-person settlement (income-proportional fair share)
 // ---------------------------------------------------------------------------
 
+/** The household's chosen way to divide the shared pool. Proportional is the
+ *  income-based default; custom pins P1's percentage (0–100) outright. */
+export interface SplitSettings {
+  method: SettlementMethod;
+  /** P1's percentage of the pool — only meaningful when method is "custom". */
+  customShareP1: number;
+}
+
+const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+
+/** P1's share of the pool under the household's split setting. */
+function shareForSetting(split: SplitSettings | undefined, incomeP1: number, totalIncome: number) {
+  if (split?.method === "custom") {
+    return { shareP1: clamp01(split.customShareP1 / 100), usedFallback: false, usedCustom: true };
+  }
+  const usedFallback = totalIncome <= 0;
+  return {
+    shareP1: usedFallback ? 0.5 : incomeP1 / totalIncome,
+    usedFallback,
+    usedCustom: false,
+  };
+}
+
 export interface Settlement {
   incomeP1: number;
   incomeP2: number;
@@ -314,6 +337,8 @@ export interface Settlement {
   shareP1: number;
   shareP2: number;
   usedFallbackShare: boolean;
+  /** True when the custom split setting (not income) fixed the shares. */
+  usedCustomShare: boolean;
   /** Shared pool = common expenses + Common-scoped bill payments. */
   pool: number;
   paidP1: number;
@@ -340,6 +365,8 @@ export interface SettlementInputs {
   /** Already-recorded settlement transfers (all periods; filtered to the
    *  window by exact [periodStart, periodEnd] match). */
   settlements?: SettlementRecord[];
+  /** Household split setting; absent behaves as income-proportional. */
+  split?: SplitSettings;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -376,8 +403,10 @@ export function computeSettlement(
   const paidP2 = expPaidP2 + billPaidP2;
   const pool = paidP1 + paidP2;
 
-  const usedFallbackShare = totalIncome <= 0;
-  const shareP1 = usedFallbackShare ? 0.5 : incomeP1 / totalIncome;
+  const { shareP1, usedFallback, usedCustom } = shareForSetting(
+    inp.split, incomeP1, totalIncome
+  );
+  const usedFallbackShare = usedFallback;
   const shareP2 = 1 - shareP1;
 
   const fairP1 = shareP1 * pool;
@@ -405,7 +434,7 @@ export function computeSettlement(
 
   return {
     incomeP1, incomeP2, totalIncome,
-    shareP1, shareP2, usedFallbackShare,
+    shareP1, shareP2, usedFallbackShare, usedCustomShare: usedCustom,
     pool,
     paidP1, paidP2,
     fairP1: round2(fairP1), fairP2: round2(fairP2),
@@ -440,14 +469,17 @@ export interface IncomeSplitInputs {
   expenses: ExpenseEntry[];
   personalExpenses: PersonalExpenseEntry[];
   bills: Bill[];
+  /** Household split setting; absent behaves as income-proportional. */
+  split?: SplitSettings;
 }
 
 /**
  * Split each person's income into what they consumed (their fair share of the
  * shared spending, kept separate from their own individual spending), what
  * they put into investments, and what's left as savings.
- * Common spending uses the same income-proportional share as the settlement
- * (50/50 fallback with no income), so the two views agree.
+ * Common spending uses the same share as the settlement — income-proportional
+ * (50/50 fallback with no income), or the custom percentage when set — so the
+ * two views agree.
  */
 export function buildIncomeSplits(
   inp: IncomeSplitInputs,
@@ -461,7 +493,7 @@ export function buildIncomeSplits(
   const incomeP1 = total(inp.income, (r) => r.person === "P1");
   const incomeP2 = total(inp.income, (r) => r.person === "P2");
   const totalIncome = incomeP1 + incomeP2;
-  const shareP1 = totalIncome > 0 ? incomeP1 / totalIncome : 0.5;
+  const shareP1 = shareForSetting(inp.split, incomeP1, totalIncome).shareP1;
   const shareP2 = 1 - shareP1;
 
   const commonExpenses = total(inp.expenses, (r) => !r.saved);

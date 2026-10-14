@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { Trans, useTranslation } from "react-i18next";
 import { useLiveQuery, useSingleMode } from "../db/live";
 import { db, type SupaTable } from "../db/db";
 import type { Entry, ExpenseEntry, IncomeEntry, Person } from "../db/types";
@@ -16,33 +17,31 @@ type Kind = "expenses" | "income" | "personalExpenses";
 type EntryMode = "expense" | "savings";
 
 // Short labels for the subtab switcher (when a page groups several kinds).
-const SUBTAB_LABELS: Record<Kind, string> = {
-  expenses: "Common",
-  income: "Income",
-  personalExpenses: "Individual",
-};
+const SUBTAB_KEYS = {
+  expenses: "ledger.subtab.common",
+  income: "ledger.subtab.income",
+  personalExpenses: "ledger.subtab.individual",
+} as const;
 
-const NOTES: Record<Kind, string> = {
-  expenses:
-    "Shared cost — settled monthly on the Dashboard. “Saved into investments” is money moved to investments, not spending.",
-  income: "Attributed to a person — sets their settlement share.",
-  personalExpenses:
-    "Personal spending — not shared, not settled. “Saved into investments” is money moved to investments, not spending.",
-};
+const NOTE_KEYS = {
+  expenses: "ledger.noteExpenses",
+  income: "ledger.noteIncome",
+  personalExpenses: "ledger.notePersonal",
+} as const;
 
 /** Single-mode overrides: there is no "Common" counterpart to distinguish. */
-const SINGLE_NOTES: Record<Kind, string> = {
-  ...NOTES,
-  expenses:
-    "What you spend. “Saved into investments” is money moved to investments, not spending.",
-  income: "Your income.",
-};
+const SINGLE_NOTE_KEYS = {
+  ...NOTE_KEYS,
+  expenses: "ledger.noteSingleExpenses",
+  income: "ledger.noteSingleIncome",
+} as const;
 
 type Row = Entry &
   Partial<Pick<ExpenseEntry, "paidBy" | "saved">> &
   Partial<Pick<IncomeEntry, "person">>;
 
 export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
+  const { t } = useTranslation();
   // The active subtab drives everything; defaults to the first tab (Common for
   // the merged Expenses page). A single-tab page just hides the switcher.
   const [kind, setKind] = useState<Kind>(tabs[0]);
@@ -53,7 +52,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   // `kind` starts at tabs[0] and is only ever set from the visible buttons, so
   // it always names a visible ledger.
   const visibleTabs = single
-    ? tabs.filter((t) => t !== "personalExpenses")
+    ? tabs.filter((tab) => tab !== "personalExpenses")
     : tabs;
 
   const isExpense = kind === "expenses";
@@ -62,12 +61,12 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   const canSave = isExpense || isPersonal;
   const isSavings = canSave && entryMode === "savings";
   const pageTitle = visibleTabs.length > 1
-    ? "Expenses & Savings"
-    : {
-        expenses: labels.expenses,
-        income: "Income",
-        personalExpenses: "Individual Expenses",
-      }[kind];
+    ? t("ledger.titleCombined")
+    : isIncome
+    ? t("ledger.titleIncome")
+    : isPersonal
+    ? t("ledger.titleIndividual")
+    : labels.expenses;
   const online = useOnline();
   const { busy, run } = useBusy();
 
@@ -132,13 +131,15 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
 
   async function remove(r: Row) {
     if (r.id == null) return;
-    const label = r.saved ? `Savings — ${fmtMoney(r.value)}` : `${r.category} — ${fmtMoney(r.value)}`;
+    const label = r.saved
+      ? t("ledger.savingsLabel", { amount: fmtMoney(r.value) })
+      : `${r.category} — ${fmtMoney(r.value)}`;
     const ok = await confirm({
-      title: "Delete entry",
-      message: `Remove ${label}${
-        r.description ? ` (${r.description})` : ""
-      }? This can't be undone.`,
-      confirmLabel: "Delete",
+      title: t("ledger.deleteTitle"),
+      message: r.description
+        ? t("ledger.deleteMessageDesc", { label, desc: r.description })
+        : t("ledger.deleteMessage", { label }),
+      confirmLabel: t("common.delete"),
       danger: true,
     });
     if (ok) await db[kind].delete(r.id);
@@ -172,17 +173,17 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   }, [rows, canSave, monthWindow[0], monthWindow[1]]);
 
   // Income, Common Expenses and Individual Expenses all attribute to a person.
-  const personColTitle = isExpense ? "Paid by" : "Person";
+  const personColTitle = isExpense ? t("common.table.paidBy") : t("common.table.person");
 
   // Column headers — shared by the "Add" form table and the list table.
   const head = (
     <thead>
       <tr>
-        <th>Date</th>
-        <th className="num">Value</th>
-        <th>Category</th>
+        <th>{t("common.table.date")}</th>
+        <th className="num">{t("common.table.value")}</th>
+        <th>{t("common.table.category")}</th>
         {!single && <th>{personColTitle}</th>}
-        <th>Description</th>
+        <th>{t("common.table.description")}</th>
         <th></th>
       </tr>
     </thead>
@@ -194,29 +195,29 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
       <h2>{pageTitle}</h2>
       {visibleTabs.length > 1 && (
         <div className="segmented" style={{ marginBottom: 12 }}>
-          {visibleTabs.map((t) => (
+          {visibleTabs.map((tab) => (
             <button
-              key={t}
-              className={kind === t ? "seg active" : "seg"}
+              key={tab}
+              className={kind === tab ? "seg active" : "seg"}
               onClick={() => {
-                setKind(t);
+                setKind(tab);
                 setEntryMode("expense");
               }}
             >
-              {SUBTAB_LABELS[t]}
+              {t(SUBTAB_KEYS[tab])}
             </button>
           ))}
         </div>
       )}
-      <p className="subtitle">{single ? SINGLE_NOTES[kind] : NOTES[kind]}</p>
+      <p className="subtitle">{t((single ? SINGLE_NOTE_KEYS : NOTE_KEYS)[kind])}</p>
 
       {/* ---------------- Add a new entry ---------------- */}
       <div className="panel" style={{ marginBottom: 24 }}>
         <div className="form-head">
-          <h3 style={{ margin: 0 }}>Add entry</h3>
+          <h3 style={{ margin: 0 }}>{t("ledger.addTitle")}</h3>
           {canSave && (
             <div className="segmented">
-              {([["expense", "Expense"], ["savings", "Saved into investments"]] as
+              {([["expense", t("ledger.modeExpense")], ["savings", t("ledger.modeSavings")]] as
                 [EntryMode, string][]).map(([id, label]) => (
                 <button
                   key={id}
@@ -233,10 +234,10 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
           {head}
           <tbody>
             <tr className="row-form">
-              <td data-label="Date">
+              <td data-label={t("common.table.date")}>
                 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
               </td>
-              <td className="num" data-label="Value">
+              <td className="num" data-label={t("common.table.value")}>
                 <input
                   type="number"
                   step="0.01"
@@ -246,12 +247,12 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                   style={{ width: 100, textAlign: "right" }}
                 />
               </td>
-              <td data-label="Category">
+              <td data-label={t("common.table.category")}>
                 {isSavings ? (
-                  <span className="pill savings">Savings</span>
+                  <span className="pill savings">{t("ledger.savingsPill")}</span>
                 ) : (
                   <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                    <option value="">— category —</option>
+                    <option value="">{t("ledger.categoryPlaceholder")}</option>
                     {categories.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
@@ -286,15 +287,17 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                   )}
                 </td>
               )}
-              <td data-label="Description">
+              <td data-label={t("common.table.description")}>
                 <input
-                  placeholder="optional"
+                  placeholder={t("common.optional")}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </td>
               <td className="row-form-actions">
-                <button className="primary" onClick={() => run(add)} disabled={!online || busy}>Add</button>
+                <button className="primary" onClick={() => run(add)} disabled={!online || busy}>
+                  {t("common.add")}
+                </button>
               </td>
             </tr>
           </tbody>
@@ -304,25 +307,31 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
       {/* ---------------- Registered entries ---------------- */}
       {isIncome ? (
         <div className="panel">
-          <h3 style={{ marginTop: 0 }}>Registered entries</h3>
+          <h3 style={{ marginTop: 0 }}>{t("ledger.registeredTitle")}</h3>
           <PeriodFilter state={filter} />
           <p className="subtitle">
-            Total for this period: <strong>{fmtMoney(total)}</strong> · {filtered.length} entries
+            <Trans
+              i18nKey="ledger.total"
+              values={{ amount: fmtMoney(total) }}
+              components={{ strong: <strong /> }}
+            />
+            {" · "}
+            {t("ledger.count", { count: filtered.length })}
           </p>
           <table className="cards-on-mobile">
             {head}
             <tbody>
               {filtered.map((r) => (
                 <tr key={r.id}>
-                  <td data-label="Date">{fmtDate(r.date)}</td>
-                  <td className="num" data-label="Value">{fmtMoney(r.value)}</td>
-                  <td data-label="Category">{r.category}</td>
+                  <td data-label={t("common.table.date")}>{fmtDate(r.date)}</td>
+                  <td className="num" data-label={t("common.table.value")}>{fmtMoney(r.value)}</td>
+                  <td data-label={t("common.table.category")}>{r.category}</td>
                   {!single && (
                     <td data-label={personColTitle}>
                       <span className="pill">{personLabel(r.paidBy ?? r.person)}</span>
                     </td>
                   )}
-                  <td data-label="Description">{r.description}</td>
+                  <td data-label={t("common.table.description")}>{r.description}</td>
                   <td>
                     <button className="ghost danger" onClick={() => remove(r)} disabled={!online}>✕</button>
                   </td>
@@ -332,35 +341,36 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
           </table>
           {filtered.length === 0 && (
             <div className="empty">
-              {rows?.length === 0
-                ? "No entries yet — add one above."
-                : "No entries for this period."}
+              {rows?.length === 0 ? t("ledger.emptyNone") : t("ledger.emptyPeriod")}
             </div>
           )}
         </div>
       ) : (
         <div className="panel">
-          <h3 style={{ marginTop: 0 }}>Latest this month</h3>
+          <h3 style={{ marginTop: 0 }}>{t("ledger.latestTitle")}</h3>
           <p className="subtitle">
-            The 5 most recent entries of {monthName(currentMonth)} {currentYear}.{" "}
-            <Link to="/history" className="link-more">View full history →</Link>
+            <Trans
+              i18nKey="ledger.latestNote"
+              values={{ month: monthName(currentMonth), year: currentYear }}
+              components={{ history: <Link to="/history" className="link-more" /> }}
+            />
           </p>
           <table className="cards-on-mobile">
             {head}
             <tbody>
               {recent.map((r) => (
                 <tr key={r.id}>
-                  <td data-label="Date">{fmtDate(r.date)}</td>
-                  <td className="num" data-label="Value">{fmtMoney(r.value)}</td>
-                  <td data-label="Category">
-                    {r.saved ? <span className="pill savings">Savings</span> : r.category}
+                  <td data-label={t("common.table.date")}>{fmtDate(r.date)}</td>
+                  <td className="num" data-label={t("common.table.value")}>{fmtMoney(r.value)}</td>
+                  <td data-label={t("common.table.category")}>
+                    {r.saved ? <span className="pill savings">{t("ledger.savingsPill")}</span> : r.category}
                   </td>
                   {!single && (
                     <td data-label={personColTitle}>
                       <span className="pill">{personLabel(r.paidBy ?? r.person)}</span>
                     </td>
                   )}
-                  <td data-label="Description">{r.description}</td>
+                  <td data-label={t("common.table.description")}>{r.description}</td>
                   <td>
                     <button className="ghost danger" onClick={() => remove(r)} disabled={!online}>✕</button>
                   </td>
@@ -371,8 +381,8 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
           {recent.length === 0 && (
             <div className="empty">
               {(rows ?? []).length === 0
-                ? "No entries yet — add one above."
-                : `No entries in ${monthName(currentMonth)} yet — see the full history for older ones.`}
+                ? t("ledger.emptyNone")
+                : t("ledger.emptyMonth", { month: monthName(currentMonth) })}
             </div>
           )}
         </div>

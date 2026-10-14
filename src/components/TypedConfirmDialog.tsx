@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 
 /**
  * Destructive confirmation that requires typing an exact phrase. Built for
@@ -6,7 +7,7 @@ import { useEffect, useState } from "react";
  * until the phrase matches, forcing a deliberate pause.
  */
 export default function TypedConfirmDialog({
-  open, title, message, phrase, confirmLabel, busyLabel = "Working…", busy = false,
+  open, title, message, phrase, confirmLabel, busyLabel, busy = false,
   onCancel, onConfirm,
 }: {
   open: boolean;
@@ -20,6 +21,7 @@ export default function TypedConfirmDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = useTranslation();
   const [text, setText] = useState("");
   useEffect(() => {
     if (open) setText("");
@@ -58,14 +60,18 @@ export default function TypedConfirmDialog({
           }}
         />
         <p className="subtitle" style={{ marginTop: 8 }}>
-          Type <strong>{phrase}</strong> to confirm.
+          <Trans
+            i18nKey="common.typeToConfirm"
+            values={{ phrase }}
+            components={{ strong: <strong /> }}
+          />
         </p>
         <div className="modal-actions">
           <button className="ghost" onClick={onCancel} disabled={busy}>
-            Cancel
+            {t("common.cancel")}
           </button>
           <button className="danger" disabled={!matches || busy} onClick={onConfirm}>
-            {busy ? busyLabel : confirmLabel}
+            {busy ? busyLabel ?? t("common.working") : confirmLabel}
           </button>
         </div>
       </div>

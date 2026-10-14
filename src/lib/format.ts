@@ -1,17 +1,32 @@
+import { uiLocale } from "../i18n";
+
 // Display helpers. Currency is EUR to match the original tracker's context;
-// change `CURRENCY` here if you use another.
+// change `CURRENCY` here if you use another. The number locale follows the
+// selected language (en-GB / pt-PT).
 const CURRENCY = "EUR";
-const LOCALE = "pt-PT";
 
-const money = new Intl.NumberFormat(LOCALE, {
-  style: "currency",
-  currency: CURRENCY,
-});
+const money = new Map<string, Intl.NumberFormat>();
 
-export function fmtMoney(n: number): string {
-  return money.format(n || 0);
+function formatter(): Intl.NumberFormat {
+  const locale = uiLocale();
+  let cached = money.get(locale);
+  if (!cached) {
+    cached = new Intl.NumberFormat(locale, { style: "currency", currency: CURRENCY });
+    money.set(locale, cached);
+  }
+  return cached;
 }
 
+export function fmtMoney(n: number): string {
+  return formatter().format(n || 0);
+}
+
+/** Plain locale number (units / unit price); money totals use fmtMoney. */
+export function fmtNum(n: number): string {
+  return n.toLocaleString(uiLocale(), { maximumFractionDigits: 6 });
+}
+
+/** Day-first date, identical in both supported locales. */
 export function fmtDate(iso: string): string {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useLiveQuery, useSingleMode } from "../db/live";
 import { db } from "../db/db";
 import type { BillScope, Person } from "../db/types";
@@ -14,6 +15,7 @@ import BackHome from "../components/BackHome";
 const SCOPES: BillScope[] = ["P1", "P2", "Common"];
 
 export default function BillsPage() {
+  const { t } = useTranslation();
   const online = useOnline();
   const single = useSingleMode();
   const { busy, run } = useBusy();
@@ -59,9 +61,9 @@ export default function BillsPage() {
   async function deleteBill(id: number | undefined, category: string, value: number) {
     if (id == null) return;
     const ok = await confirm({
-      title: "Delete bill",
-      message: `Remove the ${fmtMoney(value)} ${category} bill? This can't be undone.`,
-      confirmLabel: "Delete",
+      title: t("bills.deleteTitle"),
+      message: t("bills.deleteMessage", { amount: fmtMoney(value), category }),
+      confirmLabel: t("common.delete"),
       danger: true,
     });
     if (ok) await db.bills.delete(id);
@@ -70,12 +72,12 @@ export default function BillsPage() {
   const head = (
     <thead>
       <tr>
-        <th>Date</th>
-        <th className="num">Value</th>
-        <th>Category</th>
-        {!single && <th>Scope</th>}
-        {!single && <th>Paid by</th>}
-        <th>Description</th>
+        <th>{t("common.table.date")}</th>
+        <th className="num">{t("common.table.value")}</th>
+        <th>{t("common.table.category")}</th>
+        {!single && <th>{t("common.table.scope")}</th>}
+        {!single && <th>{t("common.table.paidBy")}</th>}
+        <th>{t("common.table.description")}</th>
         <th></th>
       </tr>
     </thead>
@@ -84,48 +86,50 @@ export default function BillsPage() {
   return (
     <div>
       <BackHome />
-      <h2>Bills</h2>
+      <h2>{t("bills.title")}</h2>
       <p className="subtitle">
         {single ? (
-          <>Registering a bill counts it as paid. This is what the Dashboard counts as “Bills”.</>
+          t("bills.subtitleSingle")
         ) : (
-          <>Registering a bill counts it as paid. Bills tagged <strong>Common</strong> are
-          split in the monthly settlement; {names.p1}/{names.p2} bills are personal. This is what the
-          dashboards count as “Bills”.</>
+          <Trans
+            i18nKey="bills.subtitleCouple"
+            values={{ p1: names.p1, p2: names.p2 }}
+            components={{ strong: <strong /> }}
+          />
         )}
       </p>
 
       {/* ---------------- Add a bill ---------------- */}
       <div className="panel" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Add bill</h3>
+        <h3 style={{ marginTop: 0 }}>{t("bills.addTitle")}</h3>
         <table className="cards-on-mobile">
           {head}
           <tbody>
             <tr className="row-form">
-              <td data-label="Date">
+              <td data-label={t("common.table.date")}>
                 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
               </td>
-              <td className="num" data-label="Value">
+              <td className="num" data-label={t("common.table.value")}>
                 <input
                   type="number" step="0.01" placeholder="0.00"
                   value={value} onChange={(e) => setValue(e.target.value)}
                   style={{ width: 100, textAlign: "right" }}
                 />
               </td>
-              <td data-label="Category">
+              <td data-label={t("common.table.category")}>
                 <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                  <option value="">— category —</option>
+                  <option value="">{t("bills.categoryPlaceholder")}</option>
                   {billCats.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </td>
               {!single && (
                 <>
-                  <td data-label="Scope">
+                  <td data-label={t("common.table.scope")}>
                     <select value={scope} onChange={(e) => setScope(e.target.value as BillScope)}>
                       {SCOPES.map((s) => <option key={s} value={s}>{scopeLabel(s)}</option>)}
                     </select>
                   </td>
-                  <td data-label="Paid by">
+                  <td data-label={t("common.table.paidBy")}>
                     {scope === "Common" ? (
                       <select value={paidBy} onChange={(e) => setPaidBy(e.target.value as Person)}>
                         <option value="P1">{names.p1}</option>
@@ -137,11 +141,17 @@ export default function BillsPage() {
                   </td>
                 </>
               )}
-              <td data-label="Description">
-                <input placeholder="optional" value={description} onChange={(e) => setDescription(e.target.value)} />
+              <td data-label={t("common.table.description")}>
+                <input
+                  placeholder={t("common.optional")}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
               </td>
               <td className="row-form-actions">
-                <button className="primary" onClick={() => run(addBill)} disabled={!online || busy}>Add</button>
+                <button className="primary" onClick={() => run(addBill)} disabled={!online || busy}>
+                  {t("common.add")}
+                </button>
               </td>
             </tr>
           </tbody>
@@ -150,26 +160,36 @@ export default function BillsPage() {
 
       {/* ---------------- Registered bills (filterable) ---------------- */}
       <div className="panel">
-        <h3 style={{ marginTop: 0 }}>Registered bills</h3>
+        <h3 style={{ marginTop: 0 }}>{t("bills.registeredTitle")}</h3>
         <PeriodFilter state={filter} />
         <p className="subtitle">
-          Total for this period: <strong>{fmtMoney(total)}</strong> · {filtered.length} bills
+          <Trans
+            i18nKey="bills.total"
+            values={{ amount: fmtMoney(total) }}
+            components={{ strong: <strong /> }}
+          />
+          {" · "}
+          {t("bills.count", { count: filtered.length })}
         </p>
         <table className="cards-on-mobile">
           {head}
           <tbody>
             {filtered.map((b) => (
               <tr key={b.id}>
-                <td data-label="Date">{fmtDate(b.date)}</td>
-                <td className="num" data-label="Value">{fmtMoney(b.value)}</td>
-                <td data-label="Category">{b.category}</td>
+                <td data-label={t("common.table.date")}>{fmtDate(b.date)}</td>
+                <td className="num" data-label={t("common.table.value")}>{fmtMoney(b.value)}</td>
+                <td data-label={t("common.table.category")}>{b.category}</td>
                 {!single && (
                   <>
-                    <td data-label="Scope"><span className="pill">{scopeLabel(b.scope)}</span></td>
-                    <td data-label="Paid by"><span className="pill">{personLabel(b.paidBy)}</span></td>
+                    <td data-label={t("common.table.scope")}>
+                      <span className="pill">{scopeLabel(b.scope)}</span>
+                    </td>
+                    <td data-label={t("common.table.paidBy")}>
+                      <span className="pill">{personLabel(b.paidBy)}</span>
+                    </td>
                   </>
                 )}
-                <td data-label="Description">{b.description}</td>
+                <td data-label={t("common.table.description")}>{b.description}</td>
                 <td>
                   <button className="ghost danger" onClick={() => deleteBill(b.id, b.category, b.value)} disabled={!online}>✕</button>
                 </td>
@@ -179,9 +199,7 @@ export default function BillsPage() {
         </table>
         {filtered.length === 0 && (
           <div className="empty">
-            {bills?.length === 0
-              ? "No bills registered yet — add one above."
-              : "No bills for this period."}
+            {bills?.length === 0 ? t("bills.emptyNone") : t("bills.emptyPeriod")}
           </div>
         )}
       </div>

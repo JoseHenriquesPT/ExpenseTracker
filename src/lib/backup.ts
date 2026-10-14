@@ -1,6 +1,7 @@
 import { db } from "../db/db";
 import { supabase } from "../db/supabase";
 import { touch } from "../db/live";
+import i18n from "../i18n";
 import {
   BackupValidationError, validateBackup, type BackupData,
 } from "./backupSchema";
@@ -37,14 +38,14 @@ export async function exportBackup(): Promise<void> {
 /** Read and validate a backup file. Nothing is written here. */
 export async function parseBackupFile(file: File): Promise<BackupData> {
   if (file.size > MAX_BACKUP_BYTES) {
-    throw new BackupValidationError("Backup file is larger than 25 MB.");
+    throw new BackupValidationError(i18n.t("errors.backupTooLarge"));
   }
   const text = await file.text();
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new BackupValidationError("Backup file isn't valid JSON.");
+    throw new BackupValidationError(i18n.t("errors.backupNotJson"));
   }
   return validateBackup(parsed);
 }
@@ -61,10 +62,7 @@ export async function importBackup(data: BackupData): Promise<void> {
     return;
   }
   if (error.code === "PGRST202" || /could not find the function/i.test(error.message)) {
-    throw new Error(
-      "The database is missing migration 0005 — run " +
-        "supabase/migrations/0005_import_backup_rpc.sql, then try again."
-    );
+    throw new Error(i18n.t("errors.backupMissingMigration"));
   }
   throw new Error(error.message);
 }

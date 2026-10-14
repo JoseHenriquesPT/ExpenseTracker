@@ -1,20 +1,22 @@
+import { useTranslation } from "react-i18next";
 import { useToasts, dismissToast } from "../lib/toast";
 
 /** Renders active toasts bottom-right. Click (or wait) to dismiss. */
 export default function Toaster() {
+  const { t } = useTranslation();
   const toasts = useToasts();
   if (!toasts.length) return null;
   return (
     <div className="toaster">
-      {toasts.map((t) => (
+      {toasts.map((toast) => (
         <div
-          key={t.id}
-          className={"toast " + t.type}
+          key={toast.id}
+          className={"toast " + toast.type}
           role="alert"
-          onClick={() => dismissToast(t.id)}
-          title="Dismiss"
+          onClick={() => dismissToast(toast.id)}
+          title={t("common.dismiss")}
         >
-          {t.message}
+          {toast.message}
         </div>
       ))}
     </div>

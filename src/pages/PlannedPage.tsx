@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useLiveQuery, useSingleMode } from "../db/live";
 import { db } from "../db/db";
 import type { Person, PlannedExpense, PlannedLink, Scope } from "../db/types";
@@ -25,6 +26,7 @@ function cleanLinks(links: PlannedLink[]): PlannedLink[] {
 }
 
 export default function PlannedPage() {
+  const { t } = useTranslation();
   const online = useOnline();
   const single = useSingleMode();
   const { busy, run } = useBusy();
@@ -66,10 +68,15 @@ export default function PlannedPage() {
   return (
     <div>
       <BackHome />
-      <h2>Planned Expenses</h2>
+      <h2>{t("planned.title")}</h2>
       <p className="subtitle">
-        Things you plan to buy. Add links for ideas, then press <strong>Purchased</strong> when
-        you buy it — the final price goes to {single ? "your expenses" : "Common or Individual expenses"} automatically.
+        <Trans
+          i18nKey="planned.subtitle"
+          values={{
+            target: single ? t("planned.targetSingle") : t("planned.targetCouple"),
+          }}
+          components={{ strong: <strong /> }}
+        />
       </p>
 
       <div className="toolbar">
@@ -78,7 +85,7 @@ export default function PlannedPage() {
           onClick={() => run(addPlan)}
           disabled={!online || busy}
         >
-          + Add planned expense
+          {t("planned.add")}
         </button>
         {offered.length > 0 && (
           <div className="choice-row plan-filter">
@@ -87,16 +94,16 @@ export default function PlannedPage() {
               aria-pressed={selectedTags.length === 0}
               onClick={() => setSelectedTags([])}
             >
-              All
+              {t("planned.all")}
             </button>
-            {offered.map((t) => (
+            {offered.map((tag) => (
               <button
-                key={t}
-                className={"choice" + (selectedTags.includes(t) ? " active" : "")}
-                aria-pressed={selectedTags.includes(t)}
-                onClick={() => setSelectedTags((s) => toggleTag(s, t))}
+                key={tag}
+                className={"choice" + (selectedTags.includes(tag) ? " active" : "")}
+                aria-pressed={selectedTags.includes(tag)}
+                onClick={() => setSelectedTags((s) => toggleTag(s, tag))}
               >
-                {t}
+                {tag}
               </button>
             ))}
           </div>
@@ -104,13 +111,11 @@ export default function PlannedPage() {
       </div>
 
       {plans === undefined ? (
-        <div className="empty">Loading…</div>
+        <div className="empty">{t("common.loading")}</div>
       ) : plans.length === 0 ? (
-        <div className="empty">
-          No planned expenses yet — add one to start your wishlist.
-        </div>
+        <div className="empty">{t("planned.emptyNone")}</div>
       ) : visible.length === 0 ? (
-        <div className="empty">No planned expenses match these tags.</div>
+        <div className="empty">{t("planned.emptyFiltered")}</div>
       ) : (
         <div className="plan-grid">
           {visible.map((plan) => (
@@ -149,6 +154,7 @@ function PlanCard({
   autoFocusName: boolean;
   onPurchase: (plan: PlannedExpense) => void;
 }) {
+  const { t } = useTranslation();
   const { busy, run } = useBusy();
   const single = useSingleMode();
   const savedTags = [...(plan.tags ?? [])].sort();
@@ -186,7 +192,7 @@ function PlanCard({
   // assigned to this plan so it can be removed here.
   const pickableTags = [
     ...allTags,
-    ...tags.filter((t) => !allTags.includes(t)),
+    ...tags.filter((tag) => !allTags.includes(tag)),
   ];
 
   async function save() {
@@ -214,9 +220,11 @@ function PlanCard({
   async function deletePlan() {
     if (plan.id == null) return;
     const ok = await confirm({
-      title: "Delete planned expense",
-      message: `Remove “${plan.name || "this planned expense"}”? This can't be undone.`,
-      confirmLabel: "Delete",
+      title: t("planned.deleteTitle"),
+      message: t("planned.deleteMessage", {
+        name: plan.name || t("planned.unnamed"),
+      }),
+      confirmLabel: t("common.delete"),
       danger: true,
     });
     if (ok) await db.plannedExpenses.delete(plan.id);
@@ -231,13 +239,13 @@ function PlanCard({
     const who = single
       ? null
       : plan.scope === "Common" && plan.paidBy
-      ? `Common · paid by ${personName(plan.paidBy, names)}`
+      ? t("planned.paidByCommon", { name: personName(plan.paidBy, names) })
       : scopeName(plan.scope ?? "Common", names);
     return (
       <div className="plan purchased">
         <div className="plan-head">
-          <div className="plan-name">{plan.name || "Untitled"}</div>
-          <span className="pill purchased-badge">✓ Purchased</span>
+          <div className="plan-name">{plan.name || t("planned.untitled")}</div>
+          <span className="pill purchased-badge">{t("planned.purchasedBadge")}</span>
         </div>
         <div className="plan-meta">
           <strong>{fmtMoney(plan.finalValue ?? 0)}</strong>
@@ -245,8 +253,8 @@ function PlanCard({
         </div>
         {(plan.tags ?? []).length > 0 && (
           <div className="plan-tags">
-            {plan.tags.map((t) => (
-              <span key={t} className="pill">{t}</span>
+            {plan.tags.map((tag) => (
+              <span key={tag} className="pill">{tag}</span>
             ))}
           </div>
         )}
@@ -258,7 +266,7 @@ function PlanCard({
             onClick={() => run(deletePlan)}
             disabled={!online || busy}
           >
-            Delete
+            {t("common.delete")}
           </button>
         </div>
       </div>
@@ -268,11 +276,11 @@ function PlanCard({
   if (!editing) {
     return (
       <div className="plan collapsed">
-        <div className="plan-name">{plan.name || "Untitled planned expense"}</div>
+        <div className="plan-name">{plan.name || t("planned.untitledPlan")}</div>
         {(plan.tags ?? []).length > 0 && (
           <div className="plan-tags">
-            {plan.tags.map((t) => (
-              <span key={t} className="pill">{t}</span>
+            {plan.tags.map((tag) => (
+              <span key={tag} className="pill">{tag}</span>
             ))}
           </div>
         )}
@@ -280,10 +288,10 @@ function PlanCard({
         <PlannedLinks links={plan.links} />
         <div className="plan-actions">
           <button onClick={() => setEditing(true)} disabled={busy}>
-            Edit
+            {t("planned.edit")}
           </button>
           <button onClick={() => run(purchase)} disabled={!online || busy}>
-            Purchased
+            {t("planned.purchased")}
           </button>
         </div>
       </div>
@@ -294,7 +302,7 @@ function PlanCard({
     <div className="plan">
       <input
         className="plan-name-input"
-        placeholder="Expense name"
+        placeholder={t("planned.namePlaceholder")}
         value={name}
         autoFocus={autoFocusName}
         onChange={(e) => setName(e.target.value)}
@@ -303,7 +311,7 @@ function PlanCard({
 
       <textarea
         className="plan-notes-input"
-        placeholder="Notes — draft anything (optional)"
+        placeholder={t("planned.notesPlaceholder")}
         rows={2}
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
@@ -312,23 +320,21 @@ function PlanCard({
 
       {pickableTags.length > 0 ? (
         <div className="choice-row">
-          {pickableTags.map((t) => (
+          {pickableTags.map((tag) => (
             <button
-              key={t}
+              key={tag}
               type="button"
-              className={"choice" + (tags.includes(t) ? " active" : "")}
-              aria-pressed={tags.includes(t)}
-              onClick={() => setTags((s) => toggleTag(s, t))}
+              className={"choice" + (tags.includes(tag) ? " active" : "")}
+              aria-pressed={tags.includes(tag)}
+              onClick={() => setTags((s) => toggleTag(s, tag))}
               disabled={busy}
             >
-              {t}
+              {tag}
             </button>
           ))}
         </div>
       ) : (
-        <p className="plan-tags-hint">
-          Add areas in Settings to tag planned expenses.
-        </p>
+        <p className="plan-tags-hint">{t("planned.tagsHint")}</p>
       )}
 
       <div className="plan-links">
@@ -337,7 +343,7 @@ function PlanCard({
             {i > 0 && (
               <button
                 className="ghost link-remove"
-                title="Remove link"
+                title={t("planned.removeLink")}
                 onClick={() => setLinks(links.filter((_, j) => j !== i))}
                 disabled={busy}
               >
@@ -357,7 +363,7 @@ function PlanCard({
           onClick={() => setLinks([...links, { ...EMPTY_LINK }])}
           disabled={busy}
         >
-          + Add link
+          {t("planned.addLink")}
         </button>
       </div>
 
@@ -367,17 +373,17 @@ function PlanCard({
           onClick={() => run(save)}
           disabled={busy || (dirty && !online)}
         >
-          Save
+          {t("common.save")}
         </button>
         <button onClick={() => run(purchase)} disabled={!online || busy}>
-          Purchased
+          {t("planned.purchased")}
         </button>
         <button
           className="ghost danger plan-delete"
           onClick={() => run(deletePlan)}
           disabled={!online || busy}
         >
-          Delete
+          {t("common.delete")}
         </button>
       </div>
     </div>
@@ -408,6 +414,7 @@ function PurchaseDialog({
   online: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const { busy, run } = useBusy();
   const single = useSingleMode();
   const [value, setValue] = useState("");
@@ -450,15 +457,16 @@ function PurchaseDialog({
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="modal-title">Confirm purchase</h3>
+        <h3 className="modal-title">{t("planned.confirmTitle")}</h3>
         <p className="modal-message">
-          Confirm “{plan.name || "this item"}” was purchased. Enter the final price
-          and where the expense should go.
+          {t("planned.confirmMessage", {
+            name: plan.name || t("planned.unnamedItem"),
+          })}
         </p>
 
         <div className="field-row" style={{ marginBottom: 14 }}>
           <div className="field">
-            <label>Final price</label>
+            <label>{t("planned.finalPrice")}</label>
             <input
               type="number"
               step="0.01"
@@ -473,20 +481,24 @@ function PurchaseDialog({
           {!single && (
             <>
               <div className="field" style={{ flex: 1 }}>
-                <label>Expense type</label>
+                <label>{t("planned.expenseType")}</label>
                 <select
                   value={scope}
                   onChange={(e) => setScope(e.target.value as Scope)}
                   disabled={busy}
                 >
-                  <option value="Common">Common (shared)</option>
-                  <option value="P1">{names.p1} (individual)</option>
-                  <option value="P2">{names.p2} (individual)</option>
+                  <option value="Common">{t("planned.scopeCommon")}</option>
+                  <option value="P1">
+                    {t("planned.scopeIndividual", { name: names.p1 })}
+                  </option>
+                  <option value="P2">
+                    {t("planned.scopeIndividual", { name: names.p2 })}
+                  </option>
                 </select>
               </div>
               {scope === "Common" && (
                 <div className="field">
-                  <label>Paid by</label>
+                  <label>{t("planned.paidBy")}</label>
                   <select
                     value={paidBy}
                     onChange={(e) => setPaidBy(e.target.value as Person)}
@@ -503,22 +515,22 @@ function PurchaseDialog({
 
         <p className="subtitle" style={{ marginBottom: 16 }}>
           {single
-            ? "Will be added to your Expenses."
+            ? t("planned.destSingle")
             : scope === "Common"
-            ? "Will be added to Common Expenses and split in the monthly settlement."
-            : `Will be added to ${personName(scope, names)}'s Individual Expenses.`}
+            ? t("planned.destCommon")
+            : t("planned.destPerson", { name: personName(scope, names) })}
         </p>
 
         <div className="modal-actions">
           <button className="ghost" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             className="primary"
             onClick={confirmPurchase}
             disabled={!valid || !online || busy}
           >
-            {busy ? "Saving…" : "Confirm purchase"}
+            {busy ? t("planned.saving") : t("planned.confirm")}
           </button>
         </div>
       </div>

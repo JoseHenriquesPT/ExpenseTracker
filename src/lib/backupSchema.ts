@@ -2,6 +2,7 @@ import type {
   Bill, Config, ExpenseEntry, IncomeEntry, Investment, InvestmentAction,
   Person, PersonalExpenseEntry, PlannedExpense, Scope, SettlementRecord,
 } from "../db/types";
+import i18n from "../i18n";
 
 /** A backup row as stored in the exported JSON (ids are ignored on import). */
 export type BackupRow<T extends { id?: number }> = Omit<T, "id">;
@@ -300,12 +301,12 @@ export function validateBackup(input: unknown): BackupData {
 /** One-line summary of what a backup contains, for the confirmation dialog. */
 export function describeBackup(data: BackupData): string {
   return [
-    `${data.expenses.length} common expenses`,
-    `${data.income.length} income entries`,
-    `${data.personalExpenses.length} individual expenses`,
-    `${data.investments.length} investments`,
-    `${data.bills.length} bills`,
-    `${data.plannedExpenses.length} planned expenses`,
-    `${data.settlements.length} settlements`,
+    i18n.t("settings.backup.summary.commonExpenses", { count: data.expenses.length }),
+    i18n.t("settings.backup.summary.income", { count: data.income.length }),
+    i18n.t("settings.backup.summary.individualExpenses", { count: data.personalExpenses.length }),
+    i18n.t("settings.backup.summary.investments", { count: data.investments.length }),
+    i18n.t("settings.backup.summary.bills", { count: data.bills.length }),
+    i18n.t("settings.backup.summary.plannedExpenses", { count: data.plannedExpenses.length }),
+    i18n.t("settings.backup.summary.settlements", { count: data.settlements.length }),
   ].join(", ");
 }

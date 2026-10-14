@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Legend, CartesianGrid,
@@ -12,7 +13,7 @@ import {
   type CategoryTotal, type IncomeSplit, type Settlement, type SplitSettings,
 } from "../lib/finance";
 import { fmtMoney } from "../lib/format";
-import { modeText, MONTHS, monthName, personName, yearOptions } from "../lib/labels";
+import { modeText, months, monthName, personName, yearOptions } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
@@ -25,6 +26,7 @@ const PIE_COLORS = [
 type Mode = "monthly" | "annual";
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const now = new Date();
   const [mode, setMode] = useState<Mode>("monthly");
   const [year, setYear] = useState(now.getFullYear());
@@ -93,17 +95,17 @@ export default function Dashboard() {
   const years = useMemo(() => yearOptions(), []);
 
   if (!overview || !splits || !settlement || !config)
-    return <div className="empty">Loading…</div>;
+    return <div className="empty">{t("common.loading")}</div>;
 
   const p1 = config.p1Name;
   const p2 = config.p2Name;
 
   const totalsBar = [
-    { name: "Income", value: overview.totalIncome },
+    { name: t("dashboard.bar.income"), value: overview.totalIncome },
     { name: labels.expensesShort, value: overview.totalExpenses },
     { name: labels.billsShort, value: overview.totalBills },
-    { name: "Invested", value: overview.totalSavings },
-    { name: "Saved", value: overview.totalSaved },
+    { name: t("dashboard.bar.invested"), value: overview.totalSavings },
+    { name: t("dashboard.bar.saved"), value: overview.totalSaved },
   ];
 
   // All spending merged by category. Savings entries keep their "Savings"
@@ -119,14 +121,14 @@ export default function Dashboard() {
   return (
     <div>
       <div className="cards">
-        <Card label="Total Income" value={overview.totalIncome} tone="pos" />
+        <Card label={t("dashboard.card.totalIncome")} value={overview.totalIncome} tone="pos" />
         <Card label={labels.expenses} value={overview.totalExpenses} tone="neg" />
         <Card label={labels.bills} value={overview.totalBills} tone="neg" />
         <Card label={labels.individual(p1)} value={splits.p1.individual} tone="neg" />
         {!single && (
           <Card label={labels.individual(p2)} value={splits.p2.individual} tone="neg" />
         )}
-        <Card label="Total Saved" value={overview.totalSaved}
+        <Card label={t("dashboard.card.totalSaved")} value={overview.totalSaved}
               tone={overview.totalSaved >= 0 ? "pos" : "neg"} />
       </div>
 
@@ -147,8 +149,8 @@ export default function Dashboard() {
           the shared spending, their own individual spending, what they
           invested and what they saved. */}
       <div className="charts">
-        <PieCard title="Spending by category" data={spendingByCategory} />
-        <PieCard title="Income by category" data={overview.income} />
+        <PieCard title={t("dashboard.pie.spending")} data={spendingByCategory} />
+        <PieCard title={t("dashboard.pie.income")} data={overview.income} />
         <PersonPie
           title={labels.totalsTitle(p1)}
           expensesLabel={labels.splitCommon}
@@ -164,7 +166,7 @@ export default function Dashboard() {
       </div>
 
       <div className="chart-card panel" style={{ marginTop: 16 }}>
-        <h3>Totals</h3>
+        <h3>{t("dashboard.totals")}</h3>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={totalsBar}>
             <CartesianGrid strokeDasharray="3 3" stroke="#2a2f4a" />
@@ -177,7 +179,7 @@ export default function Dashboard() {
               labelStyle={{ color: "#e7e9f3" }}
             />
             <Legend />
-            <Bar dataKey="value" name="Amount" fill="#6c8cff" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="value" name={t("dashboard.bar.amount")} fill="#6c8cff" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -186,12 +188,12 @@ export default function Dashboard() {
           you see; the person switcher stays at the top as the view tab. */}
       <div className="toolbar" style={{ marginTop: 16, marginBottom: 0 }}>
         <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
-          <option value="monthly">Monthly</option>
-          <option value="annual">Annual</option>
+          <option value="monthly">{t("common.monthly")}</option>
+          <option value="annual">{t("common.annual")}</option>
         </select>
         {mode === "monthly" && (
           <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
-            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            {months().map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
           </select>
         )}
         <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
@@ -209,6 +211,7 @@ function SettlementPanel({
   start: string; end: string; online: boolean;
   settlements: SettlementRecord[]; periodLabel: string;
 }) {
+  const { t } = useTranslation();
   const { busy, run } = useBusy();
   const name = (p: "P1" | "P2") => personName(p, { p1, p2 });
   const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
@@ -222,11 +225,14 @@ function SettlementPanel({
   async function settle() {
     if (!s.from || !s.to || s.amount === 0) return;
     const ok = await confirm({
-      title: "Record settlement",
-      message: `Record that ${name(s.from)} transferred ${fmtMoney(s.amount)} to ${name(
-        s.to
-      )} for ${periodLabel}? This clears the balance for this period.`,
-      confirmLabel: "Mark settled",
+      title: t("dashboard.settlement.confirmTitle"),
+      message: t("dashboard.settlement.confirmMessage", {
+        from: name(s.from),
+        to: name(s.to),
+        amount: fmtMoney(s.amount),
+        period: periodLabel,
+      }),
+      confirmLabel: t("dashboard.settlement.confirmLabel"),
     });
     if (!ok) return;
     await db.settlements.add({
@@ -242,11 +248,12 @@ function SettlementPanel({
   async function unsettle() {
     if (!recorded.length) return;
     const ok = await confirm({
-      title: "Undo settlement",
-      message: `Remove the recorded settlement${
-        recorded.length > 1 ? "s" : ""
-      } for ${periodLabel}? The balance will show as unsettled again.`,
-      confirmLabel: "Undo",
+      title: t("dashboard.settlement.undoTitle"),
+      message: t("dashboard.settlement.undoMessage", {
+        count: recorded.length,
+        period: periodLabel,
+      }),
+      confirmLabel: t("dashboard.settlement.undoLabel"),
       danger: true,
     });
     if (!ok) return;
@@ -255,24 +262,37 @@ function SettlementPanel({
 
   return (
     <div className="panel" style={{ marginBottom: 20 }}>
-      <h3 style={{ marginTop: 0 }}>Settlement — {periodLabel}</h3>
+      <h3 style={{ marginTop: 0 }}>
+        {t("dashboard.settlement.title", { period: periodLabel })}
+      </h3>
 
       <div className="settle-result">
         <span className="value">
           {s.amount === 0 ? (
             <span className="pos">
               {hasSettlement
-                ? `All settled ✓ — transfer recorded for ${periodLabel}.`
-                : "All settled — no transfer needed."}
+                ? t("dashboard.settlement.settledRecorded", { period: periodLabel })
+                : t("dashboard.settlement.settledNone")}
             </span>
           ) : (
             <>
-              <strong>{name(s.from!)}</strong> transfers{" "}
-              <strong className="amount">{fmtMoney(s.amount)}</strong> to{" "}
-              <strong>{name(s.to!)}</strong>
+              <Trans
+                i18nKey="dashboard.settlement.transfer"
+                values={{
+                  from: name(s.from!),
+                  to: name(s.to!),
+                  amount: fmtMoney(s.amount),
+                }}
+                components={{
+                  strong: <strong />,
+                  amount: <strong className="amount" />,
+                }}
+              />
               {hasSettlement && (
                 <span className="subtitle" style={{ marginLeft: 8 }}>
-                  · {fmtMoney(Math.abs(s.settledNetP1))} already transferred
+                  {t("dashboard.settlement.alreadyTransferred", {
+                    amount: fmtMoney(Math.abs(s.settledNetP1)),
+                  })}
                 </span>
               )}
             </>
@@ -281,12 +301,12 @@ function SettlementPanel({
         <div className="settle-actions">
           {s.amount > 0 && (
             <button className="primary" onClick={() => run(settle)} disabled={!online || busy}>
-              Settle
+              {t("dashboard.settlement.settle")}
             </button>
           )}
           {recorded.length > 0 && (
             <button className="ghost danger" onClick={() => run(unsettle)} disabled={!online || busy}>
-              Undo settlement
+              {t("dashboard.settlement.undo")}
             </button>
           )}
         </div>
@@ -294,14 +314,18 @@ function SettlementPanel({
 
       {s.usedCustomShare && (
         <p className="subtitle" style={{ marginTop: 8 }}>
-          Custom split — {p1} pays {pct(s.shareP1)} and {p2} pays {pct(s.shareP2)} of
-          the shared pool.
+          {t("dashboard.settlement.customNote", {
+            p1,
+            p2,
+            p1Pct: pct(s.shareP1),
+            p2Pct: pct(s.shareP2),
+          })}
         </p>
       )}
 
       {s.usedFallbackShare && (
         <p className="subtitle" style={{ marginTop: 8 }}>
-          No income recorded this period — split 50/50 as a fallback.
+          {t("dashboard.settlement.fallbackNote")}
         </p>
       )}
 
@@ -309,11 +333,11 @@ function SettlementPanel({
         <thead>
           <tr>
             <th></th>
-            <th className="num">Income</th>
-            <th className="num">Share</th>
-            <th className="num">Fair share</th>
-            <th className="num">Paid (out of pocket)</th>
-            <th className="num">Balance</th>
+            <th className="num">{t("dashboard.settlement.income")}</th>
+            <th className="num">{t("dashboard.settlement.share")}</th>
+            <th className="num">{t("dashboard.settlement.fairShare")}</th>
+            <th className="num">{t("dashboard.settlement.paid")}</th>
+            <th className="num">{t("dashboard.settlement.balance")}</th>
           </tr>
         </thead>
         <tbody>
@@ -322,7 +346,7 @@ function SettlementPanel({
           <SettleRow name={p2} income={s.incomeP2} share={s.shareP2}
                      fair={s.fairP2} paid={s.paidP2} balance={-s.balanceP1} pct={pct} />
           <tr>
-            <td><strong>Shared pool</strong></td>
+            <td><strong>{t("dashboard.settlement.sharedPool")}</strong></td>
             <td className="num"><strong>{fmtMoney(s.totalIncome)}</strong></td>
             <td className="num">100%</td>
             <td className="num"><strong>{fmtMoney(s.pool)}</strong></td>
@@ -332,9 +356,7 @@ function SettlementPanel({
         </tbody>
       </table>
       <p className="subtitle" style={{ marginTop: 8, marginBottom: 0 }}>
-        Pool = common expenses + bills tagged “Common”. Savings into investments
-        are not pooled. Fair share = income % × pool. A positive balance means
-        that person overpaid and is owed.
+        {t("dashboard.settlement.footnote")}
       </p>
     </div>
   );
@@ -376,17 +398,18 @@ function PersonPie({
 }: {
   title: string; expensesLabel: string; split: IncomeSplit;
 }) {
+  const { t } = useTranslation();
   const data: CategoryTotal[] = [
     { category: expensesLabel, value: Math.max(0, split.expenses) },
-    { category: "Individual", value: Math.max(0, split.individual) },
-    { category: "Invested", value: Math.max(0, split.invested) },
-    { category: "Saved", value: Math.max(0, split.saved) },
+    { category: t("dashboard.pie.individual"), value: Math.max(0, split.individual) },
+    { category: t("dashboard.pie.invested"), value: Math.max(0, split.invested) },
+    { category: t("dashboard.pie.saved"), value: Math.max(0, split.saved) },
   ];
   const note =
     split.saved < 0
-      ? `Overspent by ${fmtMoney(-split.saved)} this period.`
+      ? t("dashboard.pie.overspent", { amount: fmtMoney(-split.saved) })
       : split.income === 0
-      ? "No income recorded for this person."
+      ? t("dashboard.pie.noIncome")
       : undefined;
   return <PieCard title={title} data={data} note={note} />;
 }
@@ -396,13 +419,14 @@ function PieCard({
 }: {
   title: string; data: CategoryTotal[]; note?: string;
 }) {
+  const { t } = useTranslation();
   // Charts ignore zero/negative slices (matches the overview hiding blanks).
   const slices = data.filter((d) => d.value > 0);
   return (
     <div className="chart-card panel">
       <h3>{title}</h3>
       {slices.length === 0 ? (
-        <div className="empty">No data for this period.</div>
+        <div className="empty">{t("dashboard.pie.noData")}</div>
       ) : (
         <ResponsiveContainer width="100%" height={260}>
           <PieChart>

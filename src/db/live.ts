@@ -5,6 +5,7 @@ import {
   getHouseholdSnapshot, onHouseholdChange, type Household,
 } from "./household";
 import { pushToast } from "../lib/toast";
+import i18n from "../i18n";
 
 // A tiny reactive layer powering every page's live data.
 //
@@ -111,7 +112,7 @@ function reportQueryError(e: unknown): void {
   if (message !== lastError || now - lastErrorAt > 10_000) {
     lastError = message;
     lastErrorAt = now;
-    pushToast(`Couldn't load data — ${message}`, "error");
+    pushToast(i18n.t("errors.query", { message }), "error");
   }
 }
 

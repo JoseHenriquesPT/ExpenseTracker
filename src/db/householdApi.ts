@@ -5,6 +5,7 @@ import {
   type Household, type HouseholdKind,
 } from "./household";
 import { toMessage } from "../lib/errors";
+import i18n from "../i18n";
 
 // The household API: the RPCs from migration 0013 plus invite management,
 // wrapped with the module-state refresh every caller needs. AuthGate uses
@@ -92,7 +93,7 @@ export interface HouseholdInvite {
 /** Create a fresh invite for the current household (server generates the code). */
 export async function createInvite(): Promise<HouseholdInvite> {
   const household = getHouseholdSnapshot();
-  if (!household) throw new Error("Household not loaded yet — sign-in must resolve it first.");
+  if (!household) throw new Error(i18n.t("errors.householdNotLoaded"));
   const { data, error } = await supabase
     .from("household_invites")
     .insert({ householdId: household.id })

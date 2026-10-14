@@ -1,8 +1,10 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfirm, resolveConfirm } from "../lib/confirm";
 
 /** Single global confirmation modal, driven by the confirm() store. */
 export default function ConfirmDialog() {
+  const { t } = useTranslation();
   const req = useConfirm();
 
   // Esc cancels, Enter confirms while the dialog is open.
@@ -30,14 +32,14 @@ export default function ConfirmDialog() {
         <p className="modal-message">{req.message}</p>
         <div className="modal-actions">
           <button className="ghost" onClick={() => resolveConfirm(false)}>
-            {req.cancelLabel ?? "Cancel"}
+            {req.cancelLabel ?? t("common.cancel")}
           </button>
           <button
             className={req.danger ? "danger" : "primary"}
             onClick={() => resolveConfirm(true)}
             autoFocus
           >
-            {req.confirmLabel ?? "Confirm"}
+            {req.confirmLabel ?? t("common.confirm")}
           </button>
         </div>
       </div>

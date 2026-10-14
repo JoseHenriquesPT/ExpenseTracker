@@ -1,6 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { createHashRouter, Navigate, RouterProvider } from "react-router-dom";
+// Initializes i18next (language detection + persistence) before anything renders.
+import "./i18n";
 import AuthGate from "./auth/AuthGate";
 import App from "./App";
 import HomePage from "./pages/HomePage";

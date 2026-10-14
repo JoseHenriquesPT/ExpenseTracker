@@ -3,6 +3,7 @@ import { touch } from "./live";
 import { getHouseholdId, getHouseholdSnapshot } from "./household";
 import { pushToast } from "../lib/toast";
 import { toMessage } from "../lib/errors";
+import i18n from "../i18n";
 import type {
   ExpenseEntry, IncomeEntry, PersonalExpenseEntry, Investment,
   Bill, PlannedExpense, SettlementRecord, Config,
@@ -50,7 +51,7 @@ function stamped(obj: object, householdId: number): Record<string, unknown> {
  *  of a confusing network error or a button that silently does nothing. */
 export class OfflineError extends Error {
   constructor() {
-    super("You're offline — reconnect to save changes.");
+    super(i18n.t("errors.offline"));
     this.name = "OfflineError";
   }
 }

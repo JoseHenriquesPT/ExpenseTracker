@@ -4,6 +4,8 @@
 // scoped to one household. Module-level state on purpose: it sits below the
 // React tree, next to the data layer it feeds.
 
+import i18n from "../i18n";
+
 /** single = one person, everything centres on them; couple = the P1/P2 model. */
 export type HouseholdKind = "single" | "couple";
 
@@ -29,7 +31,7 @@ export function setHousehold(household: Household | null): void {
  *  resolved it — a bug, not a state a user should ever hit. */
 export function getHousehold(): Household {
   if (current == null) {
-    throw new Error("Household not loaded yet — sign-in must resolve it first.");
+    throw new Error(i18n.t("errors.householdNotLoaded"));
   }
   return current;
 }

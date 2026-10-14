@@ -1,11 +1,13 @@
 import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ensureConfig } from "./db/db";
 import { useOnline } from "./lib/useOnline";
 import Toaster from "./components/Toaster";
 import ConfirmDialog from "./components/ConfirmDialog";
 
 export default function App() {
+  const { t } = useTranslation();
   const online = useOnline();
 
   // Seed the config singleton on first launch.
@@ -18,7 +20,7 @@ export default function App() {
       <main className="content">
         {!online && (
           <div className="offline-banner" role="status">
-            ⚠ You’re offline — data can’t be loaded and changes can’t be saved until you reconnect.
+            {t("common.offline")}
           </div>
         )}
         <Outlet />

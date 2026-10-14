@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useLiveQuery, useSingleMode } from "../db/live";
 import { db } from "../db/db";
 import type { Person, Scope } from "../db/types";
@@ -11,12 +12,11 @@ import BackHome from "../components/BackHome";
 type Kind = "common" | "personal" | "savings" | "bill";
 type KindFilter = "all" | Kind;
 
-const KIND_LABELS: Record<Kind, string> = {
-  common: "Common",
-  personal: "Individual",
-  savings: "Savings",
-  bill: "Bill",
-};
+const KIND_KEYS = {
+  personal: "history.kind.personal",
+  savings: "history.kind.savings",
+  bill: "history.kind.bill",
+} as const;
 
 interface Row {
   id?: number;
@@ -32,6 +32,7 @@ interface Row {
 /** Every expense-side entry in one list: common/individual spending, savings
  *  and bills — savings included because they're where investments now live. */
 export default function HistoryPage() {
+  const { t } = useTranslation();
   const single = useSingleMode();
   const labels = modeText(single);
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
@@ -99,44 +100,45 @@ export default function HistoryPage() {
   return (
     <div>
       <BackHome />
-      <h2>History of Expenses &amp; Investments</h2>
-      <p className="subtitle">
-        Every registered entry in one place — spending, savings and bills — grouped by month,
-        newest first.
-      </p>
+      <h2>{t("history.title")}</h2>
+      <p className="subtitle">{t("history.subtitle")}</p>
 
       <PeriodFilter state={filter} />
 
       <div className="toolbar">
         <select value={kind} onChange={(e) => setKind(e.target.value as KindFilter)}>
-          <option value="all">All types</option>
+          <option value="all">{t("history.allTypes")}</option>
           <option value="common">{labels.expenses}</option>
-          {!single && <option value="personal">Individual expenses</option>}
-          <option value="savings">Savings</option>
-          <option value="bill">Bills</option>
+          {!single && <option value="personal">{t("history.individualOption")}</option>}
+          <option value="savings">{t("history.savingsOption")}</option>
+          <option value="bill">{t("history.billsOption")}</option>
         </select>
         <select value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="all">All categories</option>
+          <option value="all">{t("history.allCategories")}</option>
           {categories.map((c) => (
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
         <input
-          placeholder="Search description…"
+          placeholder={t("history.searchPlaceholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           style={{ minWidth: 200 }}
         />
         <span className="subtitle" style={{ margin: 0 }}>
-          Total: <strong>{fmtMoney(total)}</strong> · {filtered.length} entries
+          <Trans
+            i18nKey="history.total"
+            values={{ amount: fmtMoney(total) }}
+            components={{ strong: <strong /> }}
+          />
+          {" · "}
+          {t("history.count", { count: filtered.length })}
         </span>
       </div>
 
       {months.length === 0 ? (
         <div className="empty">
-          {all.length === 0
-            ? "No entries yet — register expenses, savings or bills first."
-            : "No entries match these filters."}
+          {all.length === 0 ? t("history.emptyNone") : t("history.emptyFiltered")}
         </div>
       ) : (
         months.map(([key, rows]) => {
@@ -147,43 +149,43 @@ export default function HistoryPage() {
               <div className="history-month-head">
                 <h3>{monthName(m)} {y}</h3>
                 <span className="history-month-total">
-                  {fmtMoney(monthTotal)} · {rows.length} entries
+                  {fmtMoney(monthTotal)} · {t("history.count", { count: rows.length })}
                 </span>
               </div>
               <table className="cards-on-mobile">
                 <thead>
                   <tr>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Category</th>
-                    {!single && <th>Scope</th>}
-                    {!single && <th>Paid by</th>}
-                    <th className="num">Value</th>
-                    <th>Description</th>
+                    <th>{t("common.table.date")}</th>
+                    <th>{t("common.table.type")}</th>
+                    <th>{t("common.table.category")}</th>
+                    {!single && <th>{t("common.table.scope")}</th>}
+                    {!single && <th>{t("common.table.paidBy")}</th>}
+                    <th className="num">{t("common.table.value")}</th>
+                    <th>{t("common.table.description")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => (
                     <tr key={`${r.kind}-${r.id}`}>
-                      <td data-label="Date">{fmtDate(r.date)}</td>
-                      <td data-label="Type">
+                      <td data-label={t("common.table.date")}>{fmtDate(r.date)}</td>
+                      <td data-label={t("common.table.type")}>
                         <span className={r.kind === "savings" ? "pill savings" : "pill"}>
-                          {r.kind === "common" ? labels.expenseKind : KIND_LABELS[r.kind]}
+                          {r.kind === "common" ? labels.expenseKind : t(KIND_KEYS[r.kind])}
                         </span>
                       </td>
-                      <td data-label="Category">{r.category}</td>
+                      <td data-label={t("common.table.category")}>{r.category}</td>
                       {!single && (
                         <>
-                          <td data-label="Scope">
+                          <td data-label={t("common.table.scope")}>
                             <span className="pill">{scopeName(r.scope, names)}</span>
                           </td>
-                          <td data-label="Paid by">
+                          <td data-label={t("common.table.paidBy")}>
                             <span className="pill">{personName(r.paidBy, names)}</span>
                           </td>
                         </>
                       )}
-                      <td className="num" data-label="Value">{fmtMoney(r.value)}</td>
-                      <td data-label="Description">{r.description}</td>
+                      <td className="num" data-label={t("common.table.value")}>{fmtMoney(r.value)}</td>
+                      <td data-label={t("common.table.description")}>{r.description}</td>
                     </tr>
                   ))}
                 </tbody>

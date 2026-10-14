@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useHousehold, useLiveQuery } from "../db/live";
 import { db, ensureConfig } from "../db/db";
 import { supabase } from "../db/supabase";
@@ -15,6 +16,7 @@ import { toMessage } from "../lib/errors";
 import { pushToast } from "../lib/toast";
 import { useBusy } from "../lib/useBusy";
 import { useOnline } from "../lib/useOnline";
+import { setLanguage, type Language } from "../i18n";
 import BackHome from "../components/BackHome";
 import TypedConfirmDialog from "../components/TypedConfirmDialog";
 
@@ -23,14 +25,15 @@ type ListKey = Extract<
   "incomeCategories" | "expenseCategories" | "billCategories" | "plannedTags"
 >;
 
-const LISTS: { key: ListKey; title: string }[] = [
-  { key: "incomeCategories", title: "Income categories" },
-  { key: "expenseCategories", title: "Expense categories" },
-  { key: "billCategories", title: "Bill categories" },
-  { key: "plannedTags", title: "Planned expense areas" },
-];
+const LISTS = [
+  { key: "incomeCategories", titleKey: "settings.lists.income" },
+  { key: "expenseCategories", titleKey: "settings.lists.expense" },
+  { key: "billCategories", titleKey: "settings.lists.bill" },
+  { key: "plannedTags", titleKey: "settings.lists.planned" },
+] as const;
 
 export default function SettingsPage() {
+  const { t, i18n } = useTranslation();
   const online = useOnline();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const household = useHousehold();
@@ -89,21 +92,19 @@ export default function SettingsPage() {
       // Validate first so a wrong file can't wipe anything, then ask.
       const data = await parseBackupFile(file);
       const ok = await confirm({
-        title: "Replace all data",
-        message:
-          `This replaces every current row with the backup (${describeBackup(data)}). ` +
-          "This can't be undone.",
-        confirmLabel: "Replace everything",
+        title: t("settings.backup.confirmTitle"),
+        message: t("settings.backup.confirmMessage", { summary: describeBackup(data) }),
+        confirmLabel: t("settings.backup.confirmLabel"),
         danger: true,
       });
       if (!ok) return;
       await importBackup(data);
       await ensureConfig();
-      setStatus("Backup imported ✓");
+      setStatus(t("settings.backup.imported"));
     } catch (e) {
       const message = toMessage(e);
       pushToast(message, "error");
-      setStatus("Import failed");
+      setStatus(t("settings.backup.failed"));
     } finally {
       // Allow re-selecting the same file next time.
       if (fileRef.current) fileRef.current.value = "";
@@ -119,20 +120,49 @@ export default function SettingsPage() {
     }
   }
 
-  if (!config) return <div className="empty">Loading…</div>;
+  const activeLanguage: Language = i18n.language.startsWith("pt") ? "pt" : "en";
+
+  if (!config) return <div className="empty">{t("common.loading")}</div>;
 
   return (
     <div>
       <BackHome />
-      <h2>Settings</h2>
+      <h2>{t("settings.title")}</h2>
       <p className="subtitle">
         {household?.kind === "single"
-          ? "Edit your name, categories and back up your data."
-          : "Edit people, categories and back up your data."}
+          ? t("settings.subtitleSingle")
+          : t("settings.subtitleCouple")}
       </p>
 
       <div className="panel" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Account</h3>
+        <h3 style={{ marginTop: 0 }}>{t("settings.language.title")}</h3>
+        <div className="choice-row" role="group" aria-label={t("settings.language.title")}>
+          <button
+            type="button"
+            className={activeLanguage === "en" ? "choice active" : "choice"}
+            aria-pressed={activeLanguage === "en"}
+            lang="en"
+            onClick={() => void setLanguage("en")}
+          >
+            {t("settings.language.en")}
+          </button>
+          <button
+            type="button"
+            className={activeLanguage === "pt" ? "choice active" : "choice"}
+            aria-pressed={activeLanguage === "pt"}
+            lang="pt-PT"
+            onClick={() => void setLanguage("pt")}
+          >
+            {t("settings.language.pt")}
+          </button>
+        </div>
+        <p className="subtitle" style={{ marginBottom: 0 }}>
+          {t("settings.language.subtitle")}
+        </p>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 24 }}>
+        <h3 style={{ marginTop: 0 }}>{t("settings.account.title")}</h3>
         <div className="toolbar" style={{ marginBottom: 0 }}>
           {email && <span className="subtitle" style={{ margin: 0 }}>{email}</span>}
           <button
@@ -140,7 +170,7 @@ export default function SettingsPage() {
             style={{ marginLeft: "auto" }}
             onClick={() => supabase.auth.signOut()}
           >
-            Sign out
+            {t("settings.account.signOut")}
           </button>
         </div>
       </div>
@@ -149,11 +179,13 @@ export default function SettingsPage() {
 
       <div className="panel" style={{ marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>
-          {household?.kind === "single" ? "Your name" : "People"}
+          {household?.kind === "single"
+            ? t("settings.names.singleTitle")
+            : t("settings.names.coupleTitle")}
         </h3>
         {household?.kind === "single" ? (
           <div className="field">
-            <label>Name shown in the app</label>
+            <label>{t("settings.names.singleLabel")}</label>
             <input
               value={names?.p1 ?? ""}
               onChange={(e) => setNames((d) => ({ p1: e.target.value, p2: d?.p2 ?? "" }))}
@@ -163,7 +195,7 @@ export default function SettingsPage() {
         ) : (
           <div className="field-row">
             <div className="field">
-              <label>Person 1 (P1)</label>
+              <label>{t("settings.names.p1")}</label>
               <input
                 value={names?.p1 ?? ""}
                 onChange={(e) => setNames((d) => ({ p1: e.target.value, p2: d?.p2 ?? "" }))}
@@ -171,7 +203,7 @@ export default function SettingsPage() {
               />
             </div>
             <div className="field">
-              <label>Person 2 (P2)</label>
+              <label>{t("settings.names.p2")}</label>
               <input
                 value={names?.p2 ?? ""}
                 onChange={(e) => setNames((d) => ({ p1: d?.p1 ?? "", p2: e.target.value }))}
@@ -186,10 +218,10 @@ export default function SettingsPage() {
             onClick={() => runSaveNames(saveNames)}
             disabled={!online || !namesDirty || savingNames}
           >
-            Save
+            {t("common.save")}
           </button>
           {namesDirty && (
-            <span className="subtitle" style={{ margin: 0 }}>Unsaved changes</span>
+            <span className="subtitle" style={{ margin: 0 }}>{t("common.unsavedChanges")}</span>
           )}
         </div>
       </div>
@@ -199,13 +231,13 @@ export default function SettingsPage() {
       )}
 
       <div className="panel" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Backup</h3>
+        <h3 style={{ marginTop: 0 }}>{t("settings.backup.title")}</h3>
         <div className="toolbar" style={{ marginBottom: 0 }}>
           <button className="primary" onClick={() => exportBackup()} disabled={importing}>
-            Export JSON
+            {t("settings.backup.export")}
           </button>
           <button onClick={() => fileRef.current?.click()} disabled={!online || importing}>
-            {importing ? "Importing…" : "Import JSON"}
+            {importing ? t("settings.backup.importing") : t("settings.backup.import")}
           </button>
           <input
             ref={fileRef}
@@ -217,16 +249,15 @@ export default function SettingsPage() {
           {status && <span className="subtitle" style={{ margin: 0 }}>{status}</span>}
         </div>
         <p className="subtitle" style={{ marginBottom: 0 }}>
-          Import replaces all current data in the shared database, after validating the
-          file and asking for confirmation. Export a copy regularly.
+          {t("settings.backup.note")}
         </p>
       </div>
 
       <div className="charts">
-        {LISTS.map(({ key, title }) => (
+        {LISTS.map(({ key, titleKey }) => (
           <CategoryEditor
             key={key}
-            title={title}
+            title={t(titleKey)}
             items={config[key] ?? []}
             disabled={!online}
             onAdd={(v) => addCategory(key, v)}
@@ -236,32 +267,24 @@ export default function SettingsPage() {
       </div>
 
       <div className="panel" style={{ marginTop: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Dismantle household</h3>
-        <p className="subtitle">
-          Breaks up the household. Both members keep their past months' data in
-          their own account; everything recorded in the current month is deleted.
-        </p>
+        <h3 style={{ marginTop: 0 }}>{t("settings.dismantle.title")}</h3>
+        <p className="subtitle">{t("settings.dismantle.desc")}</p>
         <button
           className="danger-solid"
           disabled={!online || dismantling}
           onClick={() => setConfirmingDismantle(true)}
         >
-          Dismantle Household
+          {t("settings.dismantle.button")}
         </button>
       </div>
 
       <TypedConfirmDialog
         open={confirmingDismantle}
-        title="Dismantle household"
-        message={
-          "This breaks up the household. Both members keep their past months' " +
-          "data — each one gets their own copy in a new single-person household — " +
-          "but everything recorded in the current month is deleted, for both people. " +
-          "This can't be undone."
-        }
-        phrase="I want to dismantle household"
-        confirmLabel="Dismantle Household"
-        busyLabel="Dismantling…"
+        title={t("settings.dismantle.title")}
+        message={t("settings.dismantle.confirmMessage")}
+        phrase={t("settings.dismantle.phrase")}
+        confirmLabel={t("settings.dismantle.button")}
+        busyLabel={t("settings.dismantle.busy")}
         busy={dismantling}
         onCancel={() => setConfirmingDismantle(false)}
         onConfirm={() => runDismantle(dismantle)}
@@ -271,11 +294,12 @@ export default function SettingsPage() {
 }
 
 function HouseholdPanel({ household, online }: { household: Household | null; online: boolean }) {
+  const { t } = useTranslation();
   // Both people set: there is nothing left to manage, so the box disappears.
   if (household && household.memberCount >= 2) return null;
   return (
     <div className="panel" style={{ marginBottom: 24 }}>
-      <h3 style={{ marginTop: 0 }}>Household</h3>
+      <h3 style={{ marginTop: 0 }}>{t("settings.household.title")}</h3>
       <HouseholdBody household={household} online={online} />
     </div>
   );
@@ -285,6 +309,7 @@ function HouseholdPanel({ household, online }: { household: Household | null; on
  *  upgrade), invite/join while alone, otherwise nothing (full households hide
  *  the whole box at {@link HouseholdPanel}). */
 function HouseholdBody({ household, online }: { household: Household | null; online: boolean }) {
+  const { t } = useTranslation();
   const invites = useLiveQuery(
     () => listInvites(),
     [household?.id, household?.memberCount]
@@ -307,29 +332,26 @@ function HouseholdBody({ household, online }: { household: Household | null; onl
   async function copy(code: string) {
     try {
       await navigator.clipboard.writeText(code);
-      pushToast("Invite code copied", "success");
+      pushToast(t("settings.household.copied"), "success");
     } catch {
-      pushToast("Couldn't copy — select the code and copy it manually.", "error");
+      pushToast(t("settings.household.copyFailed"), "error");
     }
   }
 
   if (!household) {
-    return <p className="subtitle" style={{ margin: 0 }}>Loading…</p>;
+    return <p className="subtitle" style={{ margin: 0 }}>{t("common.loading")}</p>;
   }
 
   if (household.kind === "single") {
     return (
       <>
-        <p className="subtitle">
-          This is a one-person household. Upgrading turns on the P1/P2 split
-          and lets you invite a partner.
-        </p>
+        <p className="subtitle">{t("settings.household.singleDesc")}</p>
         <button
           className="primary"
           disabled={!online || busy}
           onClick={() => action(upgradeToCouple)}
         >
-          {busy ? "Upgrading…" : "Upgrade to a couple household"}
+          {busy ? t("settings.household.upgrading") : t("settings.household.upgrade")}
         </button>
       </>
     );
@@ -338,38 +360,37 @@ function HouseholdBody({ household, online }: { household: Household | null; onl
   if (household.memberCount >= 2) {
     return (
       <p className="subtitle" style={{ margin: 0 }}>
-        Two members — your household is full.
+        {t("settings.household.full")}
       </p>
     );
   }
 
   if (invites === undefined) {
-    return <p className="subtitle" style={{ margin: 0 }}>Loading…</p>;
+    return <p className="subtitle" style={{ margin: 0 }}>{t("common.loading")}</p>;
   }
 
   return (
     <>
-      <p className="subtitle">
-        Invite your partner: send them the code. They can enter it on the
-        welcome screen or here in Settings.
-      </p>
+      <p className="subtitle">{t("settings.household.inviteDesc")}</p>
       {invites.length === 0 ? (
         <button
           className="primary"
           disabled={!online || busy}
           onClick={() => action(async () => { await createInvite(); })}
         >
-          {busy ? "Creating…" : "Create invite code"}
+          {busy ? t("settings.household.creating") : t("settings.household.createInvite")}
         </button>
       ) : (
         <div className="tag-list">
           {invites.map((inv) => (
             <span key={inv.id} className="tag">
               <code>{inv.code}</code>
-              <button onClick={() => copy(inv.code)} title="Copy">Copy</button>
+              <button onClick={() => copy(inv.code)} title={t("settings.household.copy")}>
+                {t("settings.household.copy")}
+              </button>
               <button
                 onClick={() => action(() => revokeInvite(inv.id))}
-                title="Revoke"
+                title={t("settings.household.revoke")}
                 disabled={!online || busy}
               >
                 ✕
@@ -380,11 +401,11 @@ function HouseholdBody({ household, online }: { household: Household | null; onl
       )}
 
       <div className="field" style={{ marginTop: 16 }}>
-        <label>Got a code from your partner? Join their household instead</label>
+        <label>{t("settings.household.joinLabel")}</label>
         <div className="toolbar" style={{ marginTop: 4, marginBottom: 0 }}>
           <input
             value={joinCode}
-            placeholder="Invite code"
+            placeholder={t("auth.onboarding.invitePlaceholder")}
             disabled={!online || joining}
             onChange={(e) => setJoinCode(e.target.value)}
           />
@@ -402,11 +423,11 @@ function HouseholdBody({ household, online }: { household: Household | null; onl
               })
             }
           >
-            {joining ? "Joining…" : "Join"}
+            {joining ? t("settings.household.joining") : t("settings.household.join")}
           </button>
         </div>
         <p className="subtitle" style={{ margin: "6px 0 0" }}>
-          Your entries move with you and are tagged P2 — your partner stays P1.
+          {t("settings.household.joinNote")}
         </p>
       </div>
     </>
@@ -422,6 +443,7 @@ function CategoryEditor({
   onAdd: (v: string) => void;
   onRemove: (v: string) => void;
 }) {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState("");
   return (
     <div className="panel">
@@ -430,14 +452,16 @@ function CategoryEditor({
         {items.map((c) => (
           <span key={c} className="tag">
             {c}
-            <button onClick={() => onRemove(c)} title="Remove" disabled={disabled}>✕</button>
+            <button onClick={() => onRemove(c)} title={t("common.remove")} disabled={disabled}>
+              ✕
+            </button>
           </span>
         ))}
-        {items.length === 0 && <span className="subtitle">None yet.</span>}
+        {items.length === 0 && <span className="subtitle">{t("settings.category.none")}</span>}
       </div>
       <div className="toolbar" style={{ marginBottom: 0 }}>
         <input
-          placeholder="New category"
+          placeholder={t("settings.category.new")}
           value={draft}
           disabled={disabled}
           onChange={(e) => setDraft(e.target.value)}
@@ -445,7 +469,9 @@ function CategoryEditor({
             if (e.key === "Enter") { onAdd(draft); setDraft(""); }
           }}
         />
-        <button onClick={() => { onAdd(draft); setDraft(""); }} disabled={disabled}>Add</button>
+        <button onClick={() => { onAdd(draft); setDraft(""); }} disabled={disabled}>
+          {t("common.add")}
+        </button>
       </div>
     </div>
   );
@@ -455,6 +481,7 @@ function CategoryEditor({
  *  a custom percentage for P1, controlled by the slider. Hidden in single mode
  *  by the caller — there is no shared pool to divide. */
 function SettlementMethodsPanel({ config, online }: { config: Config; online: boolean }) {
+  const { t } = useTranslation();
   const { busy: saving, run: runSave } = useBusy();
   // Tolerate rows written before migration 0015 (columns absent).
   const storedMethod: SettlementMethod = config.settlementMethod ?? "proportional";
@@ -492,10 +519,10 @@ function SettlementMethodsPanel({ config, online }: { config: Config; online: bo
 
   return (
     <div className="panel" style={{ marginBottom: 24 }}>
-      <h3 style={{ marginTop: 0 }}>Settlement methods</h3>
-      <p className="subtitle">How the shared pool is divided at the end of a period.</p>
+      <h3 style={{ marginTop: 0 }}>{t("settings.settlement.title")}</h3>
+      <p className="subtitle">{t("settings.settlement.subtitle")}</p>
 
-      <div className="choice-row" role="group" aria-label="Settlement method">
+      <div className="choice-row" role="group" aria-label={t("settings.settlement.title")}>
         <button
           type="button"
           className={draft?.method === "proportional" ? "choice active" : "choice"}
@@ -503,7 +530,7 @@ function SettlementMethodsPanel({ config, online }: { config: Config; online: bo
           disabled={!online || !draft}
           onClick={() => pick("proportional")}
         >
-          Proportional Effort Split
+          {t("settings.settlement.proportional")}
         </button>
         <button
           type="button"
@@ -512,13 +539,18 @@ function SettlementMethodsPanel({ config, online }: { config: Config; online: bo
           disabled={!online || !draft}
           onClick={() => pick("custom")}
         >
-          Custom Split
+          {t("settings.settlement.custom")}
         </button>
       </div>
 
       <div className="split-slider">
         <label>
-          {config.p1Name} pays {shareP1}% · {config.p2Name} pays {100 - shareP1}%
+          {t("settings.settlement.splitLabel", {
+            p1: config.p1Name,
+            p2: config.p2Name,
+            p1Pct: shareP1,
+            p2Pct: 100 - shareP1,
+          })}
         </label>
         <input
           type="range"
@@ -534,8 +566,8 @@ function SettlementMethodsPanel({ config, online }: { config: Config; online: bo
         />
         <p className="subtitle" style={{ margin: "4px 0 12px" }}>
           {isCustom
-            ? "Each person pays exactly their chosen percentage of the shared pool."
-            : "Each person pays their share of the household income (50/50 when no income is recorded)."}
+            ? t("settings.settlement.customNote")
+            : t("settings.settlement.proportionalNote")}
         </p>
       </div>
 
@@ -545,9 +577,11 @@ function SettlementMethodsPanel({ config, online }: { config: Config; online: bo
           disabled={!online || !dirty || saving}
           onClick={() => runSave(save)}
         >
-          Save
+          {t("common.save")}
         </button>
-        {dirty && <span className="subtitle" style={{ margin: 0 }}>Unsaved changes</span>}
+        {dirty && (
+          <span className="subtitle" style={{ margin: 0 }}>{t("common.unsavedChanges")}</span>
+        )}
       </div>
     </div>
   );

@@ -1,11 +1,19 @@
 import type { Person, Scope } from "../db/types";
+import i18n from "../i18n";
 
-export const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
+const MONTH_KEYS = [
+  "jan", "feb", "mar", "apr", "may", "jun",
+  "jul", "aug", "sep", "oct", "nov", "dec",
+] as const;
 
-export const monthName = (month: number): string => MONTHS[month - 1] ?? "";
+/** Month names in the current language (for <select> options). */
+export const months = (): string[] =>
+  MONTH_KEYS.map((key) => i18n.t(`labels.months.${key}`));
+
+export const monthName = (month: number): string => {
+  const key = MONTH_KEYS[month - 1];
+  return key ? i18n.t(`labels.months.${key}`) : "";
+};
 
 export interface PersonNames {
   p1: string;
@@ -19,7 +27,7 @@ export function personName(person: Person, names: PersonNames): string {
 
 /** Display name for a bill/investment scope. */
 export function scopeName(scope: Scope, names: PersonNames): string {
-  return scope === "Common" ? "Common" : personName(scope, names);
+  return scope === "Common" ? i18n.t("labels.common") : personName(scope, names);
 }
 
 /** The year dropdown window: four before this year, four after. */
@@ -54,23 +62,23 @@ export interface ModeText {
 export function modeText(single: boolean): ModeText {
   return single
     ? {
-        expenses: "Expenses",
-        bills: "Bills",
-        expensesShort: "Expenses",
-        billsShort: "Bills",
-        expenseKind: "Expense",
-        totalsTitle: () => "Your Totals",
-        splitCommon: "Expenses",
-        individual: () => "Individual Expenses",
+        expenses: i18n.t("labels.mode.single.expenses"),
+        bills: i18n.t("labels.mode.single.bills"),
+        expensesShort: i18n.t("labels.mode.single.expensesShort"),
+        billsShort: i18n.t("labels.mode.single.billsShort"),
+        expenseKind: i18n.t("labels.mode.single.expenseKind"),
+        totalsTitle: () => i18n.t("labels.mode.single.totalsTitle"),
+        splitCommon: i18n.t("labels.mode.single.splitCommon"),
+        individual: () => i18n.t("labels.mode.single.individual"),
       }
     : {
-        expenses: "Common Expenses",
-        bills: "Common Bills",
-        expensesShort: "Common Exp.",
-        billsShort: "Common Bills",
-        expenseKind: "Common",
-        totalsTitle: (name) => `${name}'s Totals`,
-        splitCommon: "Common",
-        individual: (name) => `${name}'s Individual`,
+        expenses: i18n.t("labels.mode.couple.expenses"),
+        bills: i18n.t("labels.mode.couple.bills"),
+        expensesShort: i18n.t("labels.mode.couple.expensesShort"),
+        billsShort: i18n.t("labels.mode.couple.billsShort"),
+        expenseKind: i18n.t("labels.mode.couple.expenseKind"),
+        totalsTitle: (name) => i18n.t("labels.mode.couple.totalsTitle", { name }),
+        splitCommon: i18n.t("labels.mode.couple.splitCommon"),
+        individual: (name) => i18n.t("labels.mode.couple.individual", { name }),
       };
 }

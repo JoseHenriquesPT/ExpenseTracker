@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useLiveQuery } from "../db/live";
 import { db } from "../db/db";
 import type { InvestmentAction, Investment, Scope } from "../db/types";
 import { filterByWindow, toISO, summarizeInvestments, investmentUnits } from "../lib/finance";
-import { fmtMoney, fmtDate } from "../lib/format";
+import { fmtMoney, fmtDate, fmtNum } from "../lib/format";
 import { scopeName } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
@@ -16,10 +17,9 @@ type TradeField = "value" | "price" | "units";
 
 // Trim a computed number to a stable short string (avoids float noise / loops).
 const short = (n: number) => (isFinite(n) ? String(Math.round(n * 1e6) / 1e6) : "");
-// Plain locale number for units / unit price (money totals use fmtMoney).
-const num = (n: number) => n.toLocaleString("pt-PT", { maximumFractionDigits: 6 });
 
 export default function InvestmentsPage() {
+  const { t } = useTranslation();
   const online = useOnline();
   const { busy, run } = useBusy();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
@@ -94,9 +94,13 @@ export default function InvestmentsPage() {
   async function remove(r: Investment) {
     if (r.id == null) return;
     const ok = await confirm({
-      title: "Delete investment",
-      message: `Remove ${r.action} · ${r.category} — ${fmtMoney(r.value)}? This can't be undone.`,
-      confirmLabel: "Delete",
+      title: t("investments.deleteTitle"),
+      message: t("investments.deleteMessage", {
+        action: r.action,
+        category: r.category,
+        amount: fmtMoney(r.value),
+      }),
+      confirmLabel: t("common.delete"),
       danger: true,
     });
     if (ok) await db.investments.delete(r.id);
@@ -123,22 +127,19 @@ export default function InvestmentsPage() {
   return (
     <div>
       <BackHome />
-      <h2>Investments (archived)</h2>
-      <p className="subtitle">
-        This tab is archived — new money moved into investments is registered as
-        “Saved into investments” under Expenses &amp; Savings. Existing rows remain here.
-      </p>
+      <h2>{t("investments.title")}</h2>
+      <p className="subtitle">{t("investments.subtitle")}</p>
 
       {/* ---------------- Add a transaction ---------------- */}
       <div className="panel" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Add investment</h3>
+        <h3 style={{ marginTop: 0 }}>{t("investments.addTitle")}</h3>
         <div className="field-row">
           <div className="field">
-            <label>Date</label>
+            <label>{t("common.table.date")}</label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="field">
-            <label>Action</label>
+            <label>{t("common.table.action")}</label>
             <select
               value={action}
               onChange={(e) => setAction(e.target.value as InvestmentAction)}
@@ -149,16 +150,16 @@ export default function InvestmentsPage() {
             </select>
           </div>
           <div className="field">
-            <label>Name</label>
+            <label>{t("common.table.name")}</label>
             <select value={name} onChange={(e) => setName(e.target.value)}>
-              <option value="">— name —</option>
+              <option value="">{t("investments.namePlaceholder")}</option>
               {names.map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
             </select>
           </div>
           <div className="field">
-            <label>Scope</label>
+            <label>{t("common.table.scope")}</label>
             <select value={scope} onChange={(e) => setScope(e.target.value as Scope)}>
               {SCOPES.map((s) => (
                 <option key={s} value={s}>{scopeLabel(s)}</option>
@@ -169,7 +170,7 @@ export default function InvestmentsPage() {
 
         <div className="field-row" style={{ marginTop: 12 }}>
           <div className="field">
-            <label>Unit price</label>
+            <label>{t("common.table.unitPrice")}</label>
             <input
               type="number"
               step="any"
@@ -181,7 +182,7 @@ export default function InvestmentsPage() {
             />
           </div>
           <div className="field">
-            <label>Units</label>
+            <label>{t("common.table.units")}</label>
             <input
               type="number"
               step="any"
@@ -193,7 +194,7 @@ export default function InvestmentsPage() {
             />
           </div>
           <div className="field">
-            <label>Value</label>
+            <label>{t("common.table.value")}</label>
             <input
               type="number"
               step="any"
@@ -204,9 +205,9 @@ export default function InvestmentsPage() {
             />
           </div>
           <div className="field" style={{ flex: 1, minWidth: 160 }}>
-            <label>Description</label>
+            <label>{t("common.table.description")}</label>
             <input
-              placeholder="optional"
+              placeholder={t("common.optional")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -214,42 +215,44 @@ export default function InvestmentsPage() {
         </div>
 
         <div className="toolbar" style={{ marginTop: 12, marginBottom: 0 }}>
-          <button className="primary" onClick={() => run(add)} disabled={!online || busy}>Add</button>
-          <span className="subtitle" style={{ margin: 0 }}>
-            Enter any two of unit price / units / value — the third fills in.
-          </span>
+          <button className="primary" onClick={() => run(add)} disabled={!online || busy}>
+            {t("common.add")}
+          </button>
+          <span className="subtitle" style={{ margin: 0 }}>{t("investments.hint")}</span>
         </div>
       </div>
 
       {/* ---------------- Holdings summary (all-time) ---------------- */}
       <div className="panel" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Holdings</h3>
+        <h3 style={{ marginTop: 0 }}>{t("investments.holdings")}</h3>
         <table className="cards-on-mobile">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Scope</th>
-              <th className="num">Units held</th>
-              <th className="num">Avg cost</th>
-              <th className="num">Invested</th>
-              <th className="num">Withdrawn</th>
-              <th className="num">Realized P/L</th>
+              <th>{t("common.table.name")}</th>
+              <th>{t("common.table.scope")}</th>
+              <th className="num">{t("investments.unitsHeld")}</th>
+              <th className="num">{t("investments.avgCost")}</th>
+              <th className="num">{t("investments.invested")}</th>
+              <th className="num">{t("investments.withdrawn")}</th>
+              <th className="num">{t("investments.realizedPl")}</th>
             </tr>
           </thead>
           <tbody>
             {active.map((h) => (
               <tr key={`${h.scope}-${h.name}`}>
-                <td data-label="Name">{h.name}</td>
-                <td data-label="Scope"><span className="pill">{scopeLabel(h.scope)}</span></td>
-                <td className="num" data-label="Units held">{num(h.units)}</td>
-                <td className="num" data-label="Avg cost">
+                <td data-label={t("common.table.name")}>{h.name}</td>
+                <td data-label={t("common.table.scope")}>
+                  <span className="pill">{scopeLabel(h.scope)}</span>
+                </td>
+                <td className="num" data-label={t("investments.unitsHeld")}>{fmtNum(h.units)}</td>
+                <td className="num" data-label={t("investments.avgCost")}>
                   {h.units > 0 ? fmtMoney(h.avgCost) : "—"}
                 </td>
-                <td className="num" data-label="Invested">{fmtMoney(h.invested)}</td>
-                <td className="num" data-label="Withdrawn">{fmtMoney(h.withdrawn)}</td>
+                <td className="num" data-label={t("investments.invested")}>{fmtMoney(h.invested)}</td>
+                <td className="num" data-label={t("investments.withdrawn")}>{fmtMoney(h.withdrawn)}</td>
                 <td
                   className={"num " + (h.realized > 0 ? "pos" : h.realized < 0 ? "neg" : "")}
-                  data-label="Realized P/L"
+                  data-label={t("investments.realizedPl")}
                 >
                   {h.realized > 0 ? "+" : ""}{fmtMoney(h.realized)}
                 </td>
@@ -258,30 +261,35 @@ export default function InvestmentsPage() {
           </tbody>
         </table>
         {active.length === 0 && (
-          <div className="empty">No holdings yet — add an investment above.</div>
+          <div className="empty">{t("investments.emptyHoldings")}</div>
         )}
       </div>
 
       {/* ---------------- Registered transactions (filterable) ---------------- */}
       <div className="panel">
-        <h3 style={{ marginTop: 0 }}>Registered transactions</h3>
+        <h3 style={{ marginTop: 0 }}>{t("investments.transactionsTitle")}</h3>
         <PeriodFilter state={filter} />
         <p className="subtitle">
-          Net invested this period: <strong>{fmtMoney(netInvested)}</strong> ·{" "}
-          {filtered.length} transactions
+          <Trans
+            i18nKey="investments.total"
+            values={{ amount: fmtMoney(netInvested) }}
+            components={{ strong: <strong /> }}
+          />
+          {" · "}
+          {t("investments.count", { count: filtered.length })}
         </p>
         <table className="cards-on-mobile">
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Action</th>
-              <th>Name</th>
-              <th>Scope</th>
-              <th className="num">Units</th>
-              <th className="num">Unit price</th>
-              <th className="num">Value</th>
-              <th className="num">P/L</th>
-              <th>Description</th>
+              <th>{t("common.table.date")}</th>
+              <th>{t("common.table.action")}</th>
+              <th>{t("common.table.name")}</th>
+              <th>{t("common.table.scope")}</th>
+              <th className="num">{t("common.table.units")}</th>
+              <th className="num">{t("common.table.unitPrice")}</th>
+              <th className="num">{t("common.table.value")}</th>
+              <th className="num">{t("investments.pl")}</th>
+              <th>{t("common.table.description")}</th>
               <th></th>
             </tr>
           </thead>
@@ -291,17 +299,23 @@ export default function InvestmentsPage() {
               const profit = r.id != null ? summary.profitByRow.get(r.id) : undefined;
               return (
                 <tr key={r.id}>
-                  <td data-label="Date">{fmtDate(r.date)}</td>
-                  <td data-label="Action"><span className="pill">{r.action}</span></td>
-                  <td data-label="Name">{r.category}</td>
-                  <td data-label="Scope"><span className="pill">{scopeLabel(r.scope)}</span></td>
-                  <td className="num" data-label="Units">{u != null ? num(u) : "—"}</td>
-                  <td className="num" data-label="Unit price">
-                    {r.pricePoint != null ? num(r.pricePoint) : "—"}
+                  <td data-label={t("common.table.date")}>{fmtDate(r.date)}</td>
+                  <td data-label={t("common.table.action")}>
+                    <span className="pill">{r.action}</span>
+                  </td>
+                  <td data-label={t("common.table.name")}>{r.category}</td>
+                  <td data-label={t("common.table.scope")}>
+                    <span className="pill">{scopeLabel(r.scope)}</span>
+                  </td>
+                  <td className="num" data-label={t("common.table.units")}>
+                    {u != null ? fmtNum(u) : "—"}
+                  </td>
+                  <td className="num" data-label={t("common.table.unitPrice")}>
+                    {r.pricePoint != null ? fmtNum(r.pricePoint) : "—"}
                   </td>
                   <td
                     className={"num " + (r.action === "Withdraw" ? "neg" : "")}
-                    data-label="Value"
+                    data-label={t("common.table.value")}
                   >
                     {fmtMoney(r.value)}
                   </td>
@@ -310,11 +324,11 @@ export default function InvestmentsPage() {
                       "num " +
                       (profit == null ? "" : profit > 0 ? "pos" : profit < 0 ? "neg" : "")
                     }
-                    data-label="P/L"
+                    data-label={t("investments.pl")}
                   >
                     {profit == null ? "—" : `${profit > 0 ? "+" : ""}${fmtMoney(profit)}`}
                   </td>
-                  <td data-label="Description">{r.description}</td>
+                  <td data-label={t("common.table.description")}>{r.description}</td>
                   <td>
                     <button
                       className="ghost danger"
@@ -331,9 +345,7 @@ export default function InvestmentsPage() {
         </table>
         {filtered.length === 0 && (
           <div className="empty">
-            {rows?.length === 0
-              ? "No transactions yet — add one above."
-              : "No transactions for this period."}
+            {rows?.length === 0 ? t("investments.emptyNone") : t("investments.emptyPeriod")}
           </div>
         )}
       </div>

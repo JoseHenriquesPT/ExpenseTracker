@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { monthStart, monthEnd, yearStart, yearEnd } from "../lib/finance";
 import type { DateWindow } from "../lib/finance";
-import { MONTHS, yearOptions } from "../lib/labels";
+import { months, yearOptions } from "../lib/labels";
 
 // Month/year period filter, mirroring the Dashboard's toolbar. Shared by the
 // ledger tabs so their registered-entry lists filter the same way the
@@ -38,19 +39,20 @@ export function usePeriodFilter(): PeriodFilterState {
 }
 
 export default function PeriodFilter({ state }: { state: PeriodFilterState }) {
+  const { t } = useTranslation();
   const { mode, month, year, setMode, setMonth, setYear } = state;
   const years = useMemo(() => yearOptions(), []);
 
   return (
     <div className="toolbar">
       <select value={mode} onChange={(e) => setMode(e.target.value as PeriodMode)}>
-        <option value="monthly">Monthly</option>
-        <option value="annual">Annual</option>
-        <option value="all">All time</option>
+        <option value="monthly">{t("common.monthly")}</option>
+        <option value="annual">{t("common.annual")}</option>
+        <option value="all">{t("common.allTime")}</option>
       </select>
       {mode === "monthly" && (
         <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
-          {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+          {months().map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
         </select>
       )}
       {mode !== "all" && (

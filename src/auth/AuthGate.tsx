@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { Trans, useTranslation } from "react-i18next";
 import { supabase } from "../db/supabase";
 import { fetchHousehold, refreshHousehold } from "../db/householdApi";
 import {
@@ -18,6 +19,7 @@ import Onboarding from "./Onboarding";
  * top of it.
  */
 export default function AuthGate({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   // undefined = still checking; null = checked, no household yet.
@@ -100,10 +102,10 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     };
   }, [household?.id]);
 
-  if (loading) return <Centered>Loading…</Centered>;
+  if (loading) return <Centered>{t("common.loading")}</Centered>;
   if (!session) return <SignIn />;
   if (failed) return <LoadFailed onRetry={() => setAttempt((n) => n + 1)} />;
-  if (household === undefined) return <Centered>Checking access…</Centered>;
+  if (household === undefined) return <Centered>{t("auth.checkingAccess")}</Centered>;
   if (household === null) {
     return (
       <Onboarding
@@ -116,6 +118,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 }
 
 function SignIn() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
@@ -139,7 +142,7 @@ function SignIn() {
     <Centered>
       <div className="panel" style={{ maxWidth: 380, textAlign: "center" }}>
         <h1 className="brand" style={{ marginTop: 0 }}>💰 Expense Tracker</h1>
-        <p className="subtitle">Sign in to continue.</p>
+        <p className="subtitle">{t("auth.signIn.prompt")}</p>
         <button
           className="primary"
           style={{ width: "100%" }}
@@ -150,20 +153,24 @@ function SignIn() {
             })
           }
         >
-          Sign in with Google
+          {t("auth.signIn.google")}
         </button>
 
-        <p className="subtitle" style={{ margin: "16px 0 8px" }}>or</p>
+        <p className="subtitle" style={{ margin: "16px 0 8px" }}>{t("auth.signIn.or")}</p>
         {sent ? (
           <p className="subtitle" style={{ margin: 0 }}>
-            Link sent — check <strong>{email.trim()}</strong> for the sign-in email.
+            <Trans
+              i18nKey="auth.signIn.sent"
+              values={{ email: email.trim() }}
+              components={{ strong: <strong /> }}
+            />
           </p>
         ) : (
           <>
             <div className="toolbar" style={{ marginBottom: 0 }}>
               <input
                 type="email"
-                placeholder="you@example.com"
+                placeholder={t("auth.signIn.emailPlaceholder")}
                 value={email}
                 disabled={busy}
                 onChange={(e) => setEmail(e.target.value)}
@@ -172,7 +179,7 @@ function SignIn() {
                 }}
               />
               <button onClick={sendLink} disabled={busy || !email.trim()}>
-                {busy ? "Sending…" : "Email me a link"}
+                {busy ? t("auth.signIn.sending") : t("auth.signIn.emailLink")}
               </button>
             </div>
             {error && <p style={{ color: "var(--red)", marginBottom: 0 }}>{error}</p>}
@@ -184,15 +191,14 @@ function SignIn() {
 }
 
 function LoadFailed({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <Centered>
       <div className="panel" style={{ maxWidth: 420, textAlign: "center" }}>
-        <h1 className="brand" style={{ marginTop: 0 }}>⚠ Couldn’t load your household</h1>
-        <p className="subtitle">
-          Something went wrong talking to the server. Check your connection and try again.
-        </p>
+        <h1 className="brand" style={{ marginTop: 0 }}>{t("auth.loadFailed.title")}</h1>
+        <p className="subtitle">{t("auth.loadFailed.body")}</p>
         <button className="primary" onClick={onRetry}>
-          Retry
+          {t("auth.loadFailed.retry")}
         </button>
       </div>
     </Centered>

@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { createHousehold, joinHousehold } from "../db/householdApi";
 import { supabase } from "../db/supabase";
+import { toMessage } from "../lib/errors";
 import Centered from "../components/Centered";
 
 /**
@@ -9,6 +11,7 @@ import Centered from "../components/Centered";
  * invite code. Rendered by AuthGate in place of the app.
  */
 export default function Onboarding({ email, onDone }: { email: string; onDone: () => void }) {
+  const { t } = useTranslation();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState<"single" | "couple" | "join" | null>(null);
   const [error, setError] = useState("");
@@ -21,7 +24,7 @@ export default function Onboarding({ email, onDone }: { email: string; onDone: (
       else await createHousehold(which);
       onDone();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(toMessage(e));
       setBusy(null);
     }
   }
@@ -33,7 +36,11 @@ export default function Onboarding({ email, onDone }: { email: string; onDone: (
           💰 Expense Tracker
         </h1>
         <p className="subtitle" style={{ textAlign: "center" }}>
-          Signed in as <strong>{email}</strong>. How do you want to track expenses?
+          <Trans
+            i18nKey="auth.onboarding.signedInAs"
+            values={{ email }}
+            components={{ strong: <strong /> }}
+          />
         </p>
 
         <button
@@ -42,10 +49,10 @@ export default function Onboarding({ email, onDone }: { email: string; onDone: (
           disabled={busy != null}
           onClick={() => run("single")}
         >
-          {busy === "single" ? "Setting up…" : "Just me"}
+          {busy === "single" ? t("auth.onboarding.settingUp") : t("auth.onboarding.justMe")}
         </button>
         <p className="subtitle" style={{ textAlign: "center", fontSize: 13 }}>
-          One person — no split, no settlement, everything in one place.
+          {t("auth.onboarding.justMeDesc")}
         </p>
 
         <button
@@ -53,33 +60,33 @@ export default function Onboarding({ email, onDone }: { email: string; onDone: (
           disabled={busy != null}
           onClick={() => run("couple")}
         >
-          {busy === "couple" ? "Setting up…" : "Me and a partner"}
+          {busy === "couple" ? t("auth.onboarding.settingUp") : t("auth.onboarding.couple")}
         </button>
         <p className="subtitle" style={{ textAlign: "center", fontSize: 13 }}>
-          Shared expenses, each person's own spending and a fair-share settlement.
+          {t("auth.onboarding.coupleDesc")}
         </p>
 
         <hr style={{ borderColor: "var(--border)", margin: "18px 0 14px" }} />
 
         <label className="subtitle" style={{ display: "block", marginBottom: 8 }}>
-          Got an invite code from your partner?
+          {t("auth.onboarding.invitePrompt")}
         </label>
         <div className="toolbar" style={{ marginBottom: 8 }}>
           <input
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="Invite code"
+            placeholder={t("auth.onboarding.invitePlaceholder")}
             disabled={busy != null}
           />
           <button disabled={busy != null || !code.trim()} onClick={() => run("join")}>
-            {busy === "join" ? "Joining…" : "Join"}
+            {busy === "join" ? t("auth.onboarding.joining") : t("auth.onboarding.join")}
           </button>
         </div>
 
         {error && <p style={{ color: "var(--red)", marginBottom: 8 }}>{error}</p>}
 
         <button className="ghost" onClick={() => supabase.auth.signOut()} disabled={busy != null}>
-          Sign out
+          {t("auth.signOut")}
         </button>
       </div>
     </Centered>

@@ -118,6 +118,10 @@ export default function Dashboard() {
     return [...m].map(([category, value]) => ({ category, value }));
   })();
 
+  // "No settlement" removes the block entirely; single mode already hides it.
+  const settlementVisible =
+    !single && (config.settlementMethod ?? "proportional") !== "none";
+
   return (
     <div>
       <div className="cards">
@@ -132,7 +136,7 @@ export default function Dashboard() {
               tone={overview.totalSaved >= 0 ? "pos" : "neg"} />
       </div>
 
-      {!single && (
+      {settlementVisible && (
         <SettlementPanel
           s={settlement}
           p1={p1}

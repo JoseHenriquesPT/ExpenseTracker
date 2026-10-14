@@ -379,3 +379,37 @@ describe("validateBackup", () => {
     expect(() => validateBackup(config("high"))).toThrow(/customShareP1/);
   });
 });
+
+describe("no settlement and hide-paid-by settings", () => {
+  const baseConfig = {
+    key: "config", p1Name: "A", p2Name: "B",
+    incomeCategories: [], expenseCategories: [], billCategories: [],
+    investmentCategories: [], actions: [],
+  };
+
+  it("accepts the no-settlement method", () => {
+    const out = validateBackup(
+      withRow("config", { ...baseConfig, settlementMethod: "none" })
+    );
+    expect(out.config[0].settlementMethod).toBe("none");
+  });
+
+  it("defaults a missing hidePaidBy flag to false", () => {
+    const out = validateBackup(validBackup());
+    expect(out.config[0].hidePaidBy).toBe(false);
+  });
+
+  it("keeps hidePaidBy through export/import", () => {
+    const out = validateBackup(
+      withRow("config", { ...baseConfig, settlementMethod: "none", hidePaidBy: true })
+    );
+    expect(out.config[0].settlementMethod).toBe("none");
+    expect(out.config[0].hidePaidBy).toBe(true);
+  });
+
+  it("rejects a junk hidePaidBy flag", () => {
+    expect(() =>
+      validateBackup(withRow("config", { ...baseConfig, hidePaidBy: "yes" }))
+    ).toThrow(/hidePaidBy/);
+  });
+});

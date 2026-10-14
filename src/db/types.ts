@@ -111,8 +111,10 @@ export interface SettlementRecord {
   amount: number;
 }
 
-/** How the shared pool is divided at the end of a period. */
-export type SettlementMethod = "proportional" | "custom";
+/** How the shared pool is divided at the end of a period.
+ *  "none" = the household doesn't settle — the Dashboard hides its
+ *  settlement block and share maths falls back to proportional. */
+export type SettlementMethod = "proportional" | "custom" | "none";
 
 /** Data Config sheet — editable category & option master lists + person names. */
 export interface Config {
@@ -128,8 +130,12 @@ export interface Config {
   plannedTags: string[];
   actions: InvestmentAction[];
   /** "proportional" = income-based fair share (the original model);
-   *  "custom" = the saved {@link customShareP1} percentage. */
+   *  "custom" = the saved {@link customShareP1} percentage;
+   *  "none" = no settlement at all. */
   settlementMethod: SettlementMethod;
   /** P1's share of the shared pool, 0–100 — only used in custom mode. */
   customShareP1: number;
+  /** With no settlement to compute, drop the "Paid by" picker from the
+   *  expense form (and its column from the expense list). */
+  hidePaidBy: boolean;
 }

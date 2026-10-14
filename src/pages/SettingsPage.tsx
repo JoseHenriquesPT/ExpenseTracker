@@ -477,23 +477,32 @@ function CategoryEditor({
 function SettlementMethodsPanel({ config, online }: { config: Config; online: boolean }) {
   const { t } = useTranslation();
   const { busy: saving, run: runSave } = useBusy();
-  // Tolerate rows written before migration 0015 (columns absent).
+  // Tolerate rows written before migrations 0015/0016 (columns absent).
   const storedMethod: SettlementMethod = config.settlementMethod ?? "proportional";
   const storedShare = config.customShareP1 ?? 50;
-  const [draft, setDraft] = useState<{ method: SettlementMethod; shareP1: number } | null>(null);
+  const storedHidePaidBy = config.hidePaidBy ?? false;
+  const [draft, setDraft] = useState<{
+    method: SettlementMethod; shareP1: number; hidePaidBy: boolean;
+  } | null>(null);
 
   // Seed from the stored config, and re-sync when it changes *unless* there
   // are unsaved edits (don't clobber) — same pattern as the name editor.
   useEffect(() => {
     setDraft((d) =>
-      d && (d.method !== storedMethod || d.shareP1 !== storedShare)
+      d &&
+      (d.method !== storedMethod ||
+        d.shareP1 !== storedShare ||
+        d.hidePaidBy !== storedHidePaidBy)
         ? d
-        : { method: storedMethod, shareP1: storedShare }
+        : { method: storedMethod, shareP1: storedShare, hidePaidBy: storedHidePaidBy }
     );
-  }, [storedMethod, storedShare]);
+  }, [storedMethod, storedShare, storedHidePaidBy]);
 
   const dirty =
-    !!draft && (draft.method !== storedMethod || draft.shareP1 !== storedShare);
+    !!draft &&
+    (draft.method !== storedMethod ||
+      draft.shareP1 !== storedShare ||
+      draft.hidePaidBy !== storedHidePaidBy);
 
   async function save() {
     if (config.id == null || !draft || !dirty) return;
@@ -501,14 +510,21 @@ function SettlementMethodsPanel({ config, online }: { config: Config; online: bo
       ...config,
       settlementMethod: draft.method,
       customShareP1: draft.shareP1,
+      hidePaidBy: draft.hidePaidBy,
     });
   }
 
   const shareP1 = draft?.shareP1 ?? storedShare;
+  const hidePaidBy = draft?.hidePaidBy ?? storedHidePaidBy;
   const isCustom = draft?.method === "custom";
+  const isNone = draft?.method === "none";
 
   function pick(method: SettlementMethod) {
-    setDraft((d) => ({ method, shareP1: d?.shareP1 ?? storedShare }));
+    setDraft((d) => ({
+      method,
+      shareP1: d?.shareP1 ?? storedShare,
+      hidePaidBy: d?.hidePaidBy ?? storedHidePaidBy,
+    }));
   }
 
   return (
@@ -535,35 +551,66 @@ function SettlementMethodsPanel({ config, online }: { config: Config; online: bo
         >
           {t("settings.settlement.custom")}
         </button>
+        <button
+          type="button"
+          className={draft?.method === "none" ? "choice active" : "choice"}
+          aria-pressed={draft?.method === "none"}
+          disabled={!online || !draft}
+          onClick={() => pick("none")}
+        >
+          {t("settings.settlement.none")}
+        </button>
       </div>
 
-      <div className="split-slider">
-        <label>
-          {t("settings.settlement.splitLabel", {
-            p1: config.p1Name,
-            p2: config.p2Name,
-            p1Pct: shareP1,
-            p2Pct: 100 - shareP1,
-          })}
+      {isNone ? (
+        <label className="settle-check">
+          <input
+            type="checkbox"
+            checked={hidePaidBy}
+            disabled={!online || !draft}
+            onChange={(e) =>
+              setDraft((d) => ({
+                method: d?.method ?? "none",
+                shareP1: d?.shareP1 ?? storedShare,
+                hidePaidBy: e.target.checked,
+              }))
+            }
+          />
+          {t("settings.settlement.hidePaidBy")}
         </label>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={shareP1}
-          disabled={!online || !isCustom}
-          onChange={(e) => {
-            const share = Number(e.target.value);
-            setDraft((d) => ({ method: d?.method ?? "custom", shareP1: share }));
-          }}
-        />
-        <p className="subtitle" style={{ margin: "4px 0 12px" }}>
-          {isCustom
-            ? t("settings.settlement.customNote")
-            : t("settings.settlement.proportionalNote")}
-        </p>
-      </div>
+      ) : (
+        <div className="split-slider">
+          <label>
+            {t("settings.settlement.splitLabel", {
+              p1: config.p1Name,
+              p2: config.p2Name,
+              p1Pct: shareP1,
+              p2Pct: 100 - shareP1,
+            })}
+          </label>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={shareP1}
+            disabled={!online || !isCustom}
+            onChange={(e) => {
+              const share = Number(e.target.value);
+              setDraft((d) => ({
+                method: d?.method ?? "custom",
+                shareP1: share,
+                hidePaidBy: d?.hidePaidBy ?? storedHidePaidBy,
+              }));
+            }}
+          />
+          <p className="subtitle" style={{ margin: "4px 0 12px" }}>
+            {isCustom
+              ? t("settings.settlement.customNote")
+              : t("settings.settlement.proportionalNote")}
+          </p>
+        </div>
+      )}
 
       <div className="toolbar" style={{ marginBottom: 0 }}>
         <button

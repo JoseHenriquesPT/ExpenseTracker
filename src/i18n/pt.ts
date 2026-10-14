@@ -187,6 +187,8 @@ const pt: typeof en = {
       subtitle: "Como o fundo comum é dividido no fim de um período.",
       proportional: "Divisão Proporcional ao Esforço",
       custom: "Divisão Personalizada",
+      none: "Sem acerto de contas",
+      hidePaidBy: "Remover “Pago por” das despesas",
       splitLabel: "{{p1}} paga {{p1Pct}}% · {{p2}} paga {{p2Pct}}%",
       customNote: "Cada pessoa paga exatamente a percentagem que escolheu do fundo comum.",
       proportionalNote:

@@ -30,7 +30,7 @@ export class BackupValidationError extends Error {
 const PEOPLE = ["P1", "P2"] as const;
 const SCOPES = ["P1", "P2", "Common"] as const;
 const ACTIONS = ["Invested", "Withdraw"] as const;
-const SETTLEMENT_METHODS = ["proportional", "custom"] as const;
+const SETTLEMENT_METHODS = ["proportional", "custom", "none"] as const;
 
 type Row = Record<string, unknown>;
 
@@ -284,6 +284,8 @@ export function validateBackup(input: unknown): BackupData {
           ? ("proportional" as const)
           : enumField(row, "settlementMethod", SETTLEMENT_METHODS, where),
       customShareP1: percentField(row, "customShareP1", where, 50),
+      // Pre-0016 exports have no hidePaidBy — default it to false.
+      hidePaidBy: boolField(row, "hidePaidBy", where),
     };
   });
 

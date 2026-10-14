@@ -217,6 +217,7 @@ export const DEFAULT_CONFIG: Omit<Config, "id"> = {
   actions: ["Invested", "Withdraw"],
   settlementMethod: "proportional",
   customShareP1: 50,
+  hidePaidBy: false,
 };
 
 /** Ensure the signed-in household's config row exists; returns it. Safe under a

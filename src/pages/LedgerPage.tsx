@@ -100,7 +100,8 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
     const num = parseFloat(value);
     if (!date || isNaN(num)) return;
     // In single mode everything belongs to the one person, no picker needed.
-    const who: Person | null = single ? "P1" : person;
+    // With Paid By dropped there is no choice to make either — default to P1.
+    const who: Person | null = single || dropPaidBy ? "P1" : person;
     if (isExpense) {
       if (!who) return;
       if (isSavings) {
@@ -174,6 +175,10 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
 
   // Income, Common Expenses and Individual Expenses all attribute to a person.
   const personColTitle = isExpense ? t("common.table.paidBy") : t("common.table.person");
+  // "Remove Paid By from expenses" (Settings, under No settlement): the picker
+  // and its column vanish from the common-expense ledger; new rows go to P1.
+  const dropPaidBy = isExpense && !single && (config?.hidePaidBy ?? false);
+  const showPersonCol = !single && !dropPaidBy;
 
   // Column headers — shared by the "Add" form table and the list table.
   const head = (
@@ -182,7 +187,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
         <th>{t("common.table.date")}</th>
         <th className="num">{t("common.table.value")}</th>
         <th>{t("common.table.category")}</th>
-        {!single && <th>{personColTitle}</th>}
+        {showPersonCol && <th>{personColTitle}</th>}
         <th>{t("common.table.description")}</th>
         <th></th>
       </tr>
@@ -259,7 +264,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                   </select>
                 )}
               </td>
-              {!single && (
+              {showPersonCol && (
                 <td data-label={personColTitle}>
                   {isIncome ? (
                     <select
@@ -326,7 +331,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                   <td data-label={t("common.table.date")}>{fmtDate(r.date)}</td>
                   <td className="num" data-label={t("common.table.value")}>{fmtMoney(r.value)}</td>
                   <td data-label={t("common.table.category")}>{r.category}</td>
-                  {!single && (
+                  {showPersonCol && (
                     <td data-label={personColTitle}>
                       <span className="pill">{personLabel(r.paidBy ?? r.person)}</span>
                     </td>
@@ -365,7 +370,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                   <td data-label={t("common.table.category")}>
                     {r.saved ? <span className="pill savings">{t("ledger.savingsPill")}</span> : r.category}
                   </td>
-                  {!single && (
+                  {showPersonCol && (
                     <td data-label={personColTitle}>
                       <span className="pill">{personLabel(r.paidBy ?? r.person)}</span>
                     </td>

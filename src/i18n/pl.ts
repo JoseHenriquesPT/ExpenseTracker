@@ -189,6 +189,8 @@ const pl: typeof en = {
       subtitle: "Jak wspólna pula jest dzielona na koniec okresu.",
       proportional: "Proporcjonalny podział wysiłku",
       custom: "Niestandardowy podział",
+      none: "Bez rozliczeń",
+      hidePaidBy: "Usuń „Opłacone przez” z wydatków",
       splitLabel: "{{p1}} płaci {{p1Pct}}% · {{p2}} płaci {{p2Pct}}%",
       customNote:
         "Każda osoba płaci dokładnie wybrany przez siebie procent wspólnej puli.",

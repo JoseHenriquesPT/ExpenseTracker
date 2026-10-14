@@ -188,6 +188,8 @@ const en = {
       subtitle: "How the shared pool is divided at the end of a period.",
       proportional: "Proportional Effort Split",
       custom: "Custom Split",
+      none: "No settlement",
+      hidePaidBy: "Remove Paid By from expenses",
       splitLabel: "{{p1}} pays {{p1Pct}}% · {{p2}} pays {{p2Pct}}%",
       customNote: "Each person pays exactly their chosen percentage of the shared pool.",
       proportionalNote:

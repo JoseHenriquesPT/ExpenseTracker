@@ -139,6 +139,11 @@ describe("DEFAULT_CONFIG", () => {
       "House", "Priority", "Kitchen", "Living Room/Office", "Bedroom",
     ]);
   });
+
+  it("starts on proportional settlement with Paid By shown", () => {
+    expect(DEFAULT_CONFIG.settlementMethod).toBe("proportional");
+    expect(DEFAULT_CONFIG.hidePaidBy).toBe(false);
+  });
 });
 
 describe("ensureConfig", () => {

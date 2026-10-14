@@ -76,6 +76,22 @@ describe("translation resources", () => {
     expect(KEYS.pl["common.save"]).toBe("Zapisz");
   });
 
+  it("names the no-settlement option and its paid-by checkbox in every language", () => {
+    expect(KEYS.en["settings.settlement.none"]).toBe("No settlement");
+    expect(KEYS.pt["settings.settlement.none"]).toBe("Sem acerto de contas");
+    expect(KEYS.pl["settings.settlement.none"]).toBe("Bez rozliczeń");
+
+    expect(KEYS.en["settings.settlement.hidePaidBy"]).toBe(
+      "Remove Paid By from expenses"
+    );
+    expect(KEYS.pt["settings.settlement.hidePaidBy"]).toBe(
+      "Remover “Pago por” das despesas"
+    );
+    expect(KEYS.pl["settings.settlement.hidePaidBy"]).toBe(
+      "Usuń „Opłacone przez” z wydatków"
+    );
+  });
+
   it("keeps language names written in their own language", () => {
     for (const lang of ["en", "pt", "pl"] as const) {
       expect(KEYS[lang]["settings.language.en"]).toBe("English");

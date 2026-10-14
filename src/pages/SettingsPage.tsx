@@ -16,7 +16,7 @@ import { toMessage } from "../lib/errors";
 import { pushToast } from "../lib/toast";
 import { useBusy } from "../lib/useBusy";
 import { useOnline } from "../lib/useOnline";
-import { setLanguage, type Language } from "../i18n";
+import { LANGUAGES, currentLanguage, setLanguage } from "../i18n";
 import BackHome from "../components/BackHome";
 import TypedConfirmDialog from "../components/TypedConfirmDialog";
 
@@ -33,7 +33,7 @@ const LISTS = [
 ] as const;
 
 export default function SettingsPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const online = useOnline();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const household = useHousehold();
@@ -120,7 +120,7 @@ export default function SettingsPage() {
     }
   }
 
-  const activeLanguage: Language = i18n.language.startsWith("pt") ? "pt" : "en";
+  const activeLanguage = currentLanguage();
 
   if (!config) return <div className="empty">{t("common.loading")}</div>;
 
@@ -137,24 +137,18 @@ export default function SettingsPage() {
       <div className="panel" style={{ marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>{t("settings.language.title")}</h3>
         <div className="choice-row" role="group" aria-label={t("settings.language.title")}>
-          <button
-            type="button"
-            className={activeLanguage === "en" ? "choice active" : "choice"}
-            aria-pressed={activeLanguage === "en"}
-            lang="en"
-            onClick={() => void setLanguage("en")}
-          >
-            {t("settings.language.en")}
-          </button>
-          <button
-            type="button"
-            className={activeLanguage === "pt" ? "choice active" : "choice"}
-            aria-pressed={activeLanguage === "pt"}
-            lang="pt-PT"
-            onClick={() => void setLanguage("pt")}
-          >
-            {t("settings.language.pt")}
-          </button>
+          {LANGUAGES.map((code) => (
+            <button
+              key={code}
+              type="button"
+              className={activeLanguage === code ? "choice active" : "choice"}
+              aria-pressed={activeLanguage === code}
+              lang={code === "pt" ? "pt-PT" : code}
+              onClick={() => void setLanguage(code)}
+            >
+              {t(`settings.language.${code}`)}
+            </button>
+          ))}
         </div>
         <p className="subtitle" style={{ marginBottom: 0 }}>
           {t("settings.language.subtitle")}

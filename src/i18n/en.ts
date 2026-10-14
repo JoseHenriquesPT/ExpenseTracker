@@ -1,6 +1,11 @@
 /** English resources — the source of truth for every translation key.
- *  `pt.ts` is typed as `typeof en`, so the build fails if a key added here is
- *  missing a Portuguese translation (or if the Portuguese side invents one). */
+ *  `pt.ts` and `pl.ts` are typed as `typeof en`, so the build fails if a key
+ *  added here is missing a translation (or if another language invents one).
+ *
+ *  Plural keys: i18next picks a suffix per language via Intl.PluralRules.
+ *  English and Portuguese only use `_one`/`_other`; Polish also uses `_few`
+ *  and `_many`, so every language declares all four (the unused ones mirror
+ *  `_other` and are never selected by those locales). */
 const en = {
   common: {
     loading: "Loading…",
@@ -91,6 +96,7 @@ const en = {
         "The app switches to this language right away. Your choice is remembered on this device.",
       en: "English",
       pt: "Português (Portugal)",
+      pl: "Polski",
     },
     account: {
       title: "Account",
@@ -138,18 +144,32 @@ const en = {
       confirmLabel: "Replace everything",
       summary: {
         commonExpenses_one: "{{count}} common expense",
+        commonExpenses_few: "{{count}} common expenses",
+        commonExpenses_many: "{{count}} common expenses",
         commonExpenses_other: "{{count}} common expenses",
         income_one: "{{count}} income entry",
+        income_few: "{{count}} income entries",
+        income_many: "{{count}} income entries",
         income_other: "{{count}} income entries",
         individualExpenses_one: "{{count}} individual expense",
+        individualExpenses_few: "{{count}} individual expenses",
+        individualExpenses_many: "{{count}} individual expenses",
         individualExpenses_other: "{{count}} individual expenses",
         investments_one: "{{count}} investment",
+        investments_few: "{{count}} investments",
+        investments_many: "{{count}} investments",
         investments_other: "{{count}} investments",
         bills_one: "{{count}} bill",
+        bills_few: "{{count}} bills",
+        bills_many: "{{count}} bills",
         bills_other: "{{count}} bills",
         plannedExpenses_one: "{{count}} planned expense",
+        plannedExpenses_few: "{{count}} planned expenses",
+        plannedExpenses_many: "{{count}} planned expenses",
         plannedExpenses_other: "{{count}} planned expenses",
         settlements_one: "{{count}} settlement",
+        settlements_few: "{{count}} settlements",
+        settlements_many: "{{count}} settlements",
         settlements_other: "{{count}} settlements",
       },
     },
@@ -220,10 +240,14 @@ const en = {
         "Record that {{from}} transferred {{amount}} to {{to}} for {{period}}? This clears the balance for this period.",
       confirmLabel: "Mark settled",
       undoTitle: "Undo settlement",
-      undoMessage_one:
-        "Remove the recorded settlement for {{period}}? The balance will show as unsettled again.",
-      undoMessage_other:
-        "Remove the recorded settlements for {{period}}? The balance will show as unsettled again.",
+    undoMessage_one:
+      "Remove the recorded settlement for {{period}}? The balance will show as unsettled again.",
+    undoMessage_few:
+      "Remove the recorded settlements for {{period}}? The balance will show as unsettled again.",
+    undoMessage_many:
+      "Remove the recorded settlements for {{period}}? The balance will show as unsettled again.",
+    undoMessage_other:
+      "Remove the recorded settlements for {{period}}? The balance will show as unsettled again.",
       undoLabel: "Undo",
       customNote:
         "Custom split — {{p1}} pays {{p1Pct}} and {{p2}} pays {{p2Pct}} of the shared pool.",
@@ -250,6 +274,8 @@ const en = {
     categoryPlaceholder: "— category —",
     total: "Total for this period: <strong>{{amount}}</strong>",
     count_one: "{{count}} bill",
+    count_few: "{{count}} bills",
+    count_many: "{{count}} bills",
     count_other: "{{count}} bills",
     emptyNone: "No bills registered yet — add one above.",
     emptyPeriod: "No bills for this period.",
@@ -285,6 +311,8 @@ const en = {
       "The 5 most recent entries of {{month}} {{year}}. <history>View full history →</history>",
     total: "Total for this period: <strong>{{amount}}</strong>",
     count_one: "{{count}} entry",
+    count_few: "{{count}} entries",
+    count_many: "{{count}} entries",
     count_other: "{{count}} entries",
     emptyNone: "No entries yet — add one above.",
     emptyPeriod: "No entries for this period.",
@@ -307,6 +335,8 @@ const en = {
     searchPlaceholder: "Search description…",
     total: "Total: <strong>{{amount}}</strong>",
     count_one: "{{count}} entry",
+    count_few: "{{count}} entries",
+    count_many: "{{count}} entries",
     count_other: "{{count}} entries",
     emptyNone: "No entries yet — register expenses, savings or bills first.",
     emptyFiltered: "No entries match these filters.",
@@ -375,6 +405,8 @@ const en = {
     transactionsTitle: "Registered transactions",
     total: "Net invested this period: <strong>{{amount}}</strong>",
     count_one: "{{count}} transaction",
+    count_few: "{{count}} transactions",
+    count_many: "{{count}} transactions",
     count_other: "{{count}} transactions",
     emptyNone: "No transactions yet — add one above.",
     emptyPeriod: "No transactions for this period.",

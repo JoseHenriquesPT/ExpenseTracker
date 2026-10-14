@@ -2,9 +2,11 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import en from "./en";
 import pt from "./pt";
-import { initialLanguage, writeStored, type Language } from "./prefs";
+import pl from "./pl";
+import { initialLanguage, normalize, writeStored, type Language } from "./prefs";
 
 export type { Language } from "./prefs";
+export { LANGUAGES, STORAGE_KEY } from "./prefs";
 
 declare module "i18next" {
   interface CustomTypeOptions {
@@ -20,34 +22,42 @@ void i18n.use(initReactI18next).init({
   resources: {
     en: { translation: en },
     pt: { translation: pt },
+    pl: { translation: pl },
   },
   lng: initialLanguage(browserLanguage),
   fallbackLng: "en",
-  supportedLngs: ["en", "pt"],
+  supportedLngs: ["en", "pt", "pl"],
   interpolation: { escapeValue: false },
 });
 
 /** Keep <html lang> in step so screen readers and CSS react to the language. */
 function applyDocumentLanguage(lng: string): void {
-  if (typeof document !== "undefined") {
-    document.documentElement.lang = lng.startsWith("pt") ? "pt-PT" : "en";
-  }
+  if (typeof document === "undefined") return;
+  const lang = normalize(lng) ?? "en";
+  document.documentElement.lang = lang === "pt" ? "pt-PT" : lang;
 }
 
 applyDocumentLanguage(i18n.language);
 i18n.on("languageChanged", (lng) => {
-  writeStored(lng.startsWith("pt") ? "pt" : "en");
+  writeStored(normalize(lng) ?? "en");
   applyDocumentLanguage(lng);
 });
 
-/** The supported language currently in effect ("en" | "pt"). */
+/** The supported language currently in effect ("en" | "pt" | "pl"). */
 export function currentLanguage(): Language {
-  return i18n.language.startsWith("pt") ? "pt" : "en";
+  return normalize(i18n.language) ?? "en";
 }
 
 /** BCP-47 locale for number/date formatting in the current language. */
 export function uiLocale(): string {
-  return currentLanguage() === "pt" ? "pt-PT" : "en-GB";
+  switch (currentLanguage()) {
+    case "pt":
+      return "pt-PT";
+    case "pl":
+      return "pl-PL";
+    default:
+      return "en-GB";
+  }
 }
 
 export async function setLanguage(lang: Language): Promise<void> {

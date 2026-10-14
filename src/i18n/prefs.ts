@@ -1,9 +1,9 @@
 // Language preference storage — pure functions, no i18next dependency, so the
 // rules (stored choice beats browser detection) are testable on their own.
 
-export type Language = "en" | "pt";
+export type Language = "en" | "pt" | "pl";
 
-export const LANGUAGES: readonly Language[] = ["en", "pt"] as const;
+export const LANGUAGES: readonly Language[] = ["en", "pt", "pl"] as const;
 
 export const STORAGE_KEY = "expense-tracker.language";
 
@@ -13,6 +13,7 @@ export function normalize(value: string | null | undefined): Language | null {
   const tag = value.toLowerCase();
   if (tag === "en" || tag.startsWith("en-")) return "en";
   if (tag === "pt" || tag.startsWith("pt-")) return "pt";
+  if (tag === "pl" || tag.startsWith("pl-")) return "pl";
   return null;
 }
 
@@ -33,9 +34,9 @@ export function writeStored(lang: Language): void {
   }
 }
 
-/** What the browser reports: Portuguese for pt-* tags, English otherwise. */
+/** What the browser reports: the supported language it names, else English. */
 export function detectLanguage(browserLanguage?: string | null): Language {
-  return normalize(browserLanguage) === "pt" ? "pt" : "en";
+  return normalize(browserLanguage) ?? "en";
 }
 
 /** The language to start with: the stored choice, else the browser's. */

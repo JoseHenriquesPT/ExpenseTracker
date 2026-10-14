@@ -4,9 +4,10 @@ import {
   getHouseholdSnapshot, setHousehold,
   type Household, type HouseholdKind,
 } from "./household";
+import { toMessage } from "../lib/errors";
 
-// Onboarding + household management API: the RPCs from migration 0013 wrapped
-// with the module-state refresh every caller needs. AuthGate uses
+// The household API: the RPCs from migration 0013 plus invite management,
+// wrapped with the module-state refresh every caller needs. AuthGate uses
 // fetchHousehold() to decide between onboarding and the app; the Onboarding and
 // Settings screens use the rest.
 
@@ -42,29 +43,31 @@ export async function refreshHousehold(): Promise<Household | null> {
   return household;
 }
 
+/** Run a household RPC, refresh the module state and wake live queries. */
+async function runHouseholdRpc(
+  fn: string,
+  args: Record<string, unknown>
+): Promise<void> {
+  const { error } = await supabase.rpc(fn, args);
+  if (error) throw new Error(toMessage(error));
+  await refreshHousehold();
+  touch();
+}
+
 /** "Just me" (single) or "me and a partner" (couple). Fails if the account
  *  already belongs to a household. */
 export async function createHousehold(kind: HouseholdKind): Promise<void> {
-  const { error } = await supabase.rpc("create_household", { p_kind: kind });
-  if (error) throw new Error(error.message);
-  await refreshHousehold();
-  touch();
+  await runHouseholdRpc("create_household", { p_kind: kind });
 }
 
 /** Join a couple household with an invite code. */
 export async function joinHousehold(code: string): Promise<void> {
-  const { error } = await supabase.rpc("join_household", { p_code: code });
-  if (error) throw new Error(error.message);
-  await refreshHousehold();
-  touch();
+  await runHouseholdRpc("join_household", { p_code: code });
 }
 
 /** Owner-only: turn a single household into a couple one (so it can invite). */
 export async function upgradeToCouple(): Promise<void> {
-  const { error } = await supabase.rpc("set_household_kind", { p_kind: "couple" });
-  if (error) throw new Error(error.message);
-  await refreshHousehold();
-  touch();
+  await runHouseholdRpc("set_household_kind", { p_kind: "couple" });
 }
 
 /** An active invite code for the current household. */
@@ -82,14 +85,14 @@ export async function createInvite(): Promise<HouseholdInvite> {
     .insert({ householdId: household.id })
     .select("id, code")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(toMessage(error));
   touch();
   return data as HouseholdInvite;
 }
 
 export async function revokeInvite(id: number): Promise<void> {
   const { error } = await supabase.from("household_invites").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(toMessage(error));
   touch();
 }
 

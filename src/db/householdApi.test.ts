@@ -8,56 +8,13 @@ vi.mock("./live", () => ({ touch: vi.fn() }));
 import {
   createHousehold, createInvite, fetchHousehold, joinHousehold, listInvites,
   revokeInvite, upgradeToCouple,
-} from "./onboarding";
+} from "./householdApi";
 import { getHousehold, getHouseholdSnapshot, setHousehold } from "./household";
-
-interface Call {
-  method: string;
-  args: unknown[];
-}
-
-type Outcome = { data: unknown; error: unknown };
-
-/** Minimal stand-in for the supabase-js query builder (invites table). */
-class FakeQuery {
-  calls: Call[] = [];
-
-  constructor(private readonly result: Outcome) {}
-
-  private record(method: string, args: unknown[]): this {
-    this.calls.push({ method, args });
-    return this;
-  }
-
-  select(...args: unknown[]): this { return this.record("select", args); }
-  insert(...args: unknown[]): this { return this.record("insert", args); }
-  delete(...args: unknown[]): this { return this.record("delete", args); }
-  eq(...args: unknown[]): this { return this.record("eq", args); }
-  is(...args: unknown[]): this { return this.record("is", args); }
-  gt(...args: unknown[]): this { return this.record("gt", args); }
-  order(...args: unknown[]): this { return this.record("order", args); }
-
-  single(): Promise<Outcome> {
-    this.calls.push({ method: "single", args: [] });
-    return Promise.resolve(this.result);
-  }
-
-  then<TResult1 = Outcome, TResult2 = never>(
-    onfulfilled?: ((value: Outcome) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
-  ): Promise<TResult1 | TResult2> {
-    return Promise.resolve(this.result).then(onfulfilled, onrejected);
-  }
-}
+import { type FakeQuery, queueQuery } from "./fakeSupabase";
 
 /** Queue the next `supabase.from(...)` call to return a fake query builder. */
 function next(result: { data?: unknown; error?: unknown } = {}): FakeQuery {
-  const q = new FakeQuery({
-    data: result.data === undefined ? [] : result.data,
-    error: result.error ?? null,
-  });
-  from.mockImplementationOnce(() => q);
-  return q;
+  return queueQuery(from, result);
 }
 
 /** Route RPC calls by function name; unknown names fail loudly. */

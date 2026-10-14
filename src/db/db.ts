@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import { touch } from "./live";
 import { getHouseholdId, getHouseholdSnapshot } from "./household";
 import { pushToast } from "../lib/toast";
+import { toMessage } from "../lib/errors";
 import type {
   ExpenseEntry, IncomeEntry, PersonalExpenseEntry, Investment,
   Bill, PlannedExpense, SettlementRecord, Config,
@@ -40,6 +41,11 @@ function stripId<T extends { id?: number }>(obj: T): Omit<T, "id"> {
 /** Column that ties every row to its household (migration 0008). */
 const HOUSEHOLD = "householdId";
 
+/** Insert payload for one row: identity `id` stripped, household stamped. */
+function stamped(obj: object, householdId: number): Record<string, unknown> {
+  return { ...stripId(obj as { id?: number }), [HOUSEHOLD]: householdId };
+}
+
 /** Fail fast on writes while offline, with a message the UI can show — instead
  *  of a confusing network error or a button that silently does nothing. */
 export class OfflineError extends Error {
@@ -50,15 +56,6 @@ export class OfflineError extends Error {
 }
 function assertOnline(): void {
   if (typeof navigator !== "undefined" && !navigator.onLine) throw new OfflineError();
-}
-
-/** Turn any thrown write failure into a short, user-facing sentence. */
-function toMessage(e: unknown): string {
-  const msg = (e as { message?: string })?.message ?? String(e);
-  if (/failed to fetch|networkerror|load failed|fetch/i.test(msg)) {
-    return "Couldn't reach the server — your change wasn't saved.";
-  }
-  return msg;
 }
 
 /** Run a write: block when offline (banner handles that case), and on any other
@@ -118,7 +115,7 @@ export class SupaTable<T extends { id?: number }> {
     const hid = getHouseholdId();
     const { data, error } = await supabase
       .from(this.table)
-      .insert({ ...stripId(obj), [HOUSEHOLD]: hid } as never)
+      .insert(stamped(obj, hid) as never)
       .select("id")
       .single();
     if (error) throw error;
@@ -175,7 +172,7 @@ export class SupaTable<T extends { id?: number }> {
     if (!objs.length) return;
     return guardWrite(async () => {
       const hid = getHouseholdId();
-      const rows = objs.map((o) => ({ ...stripId(o), [HOUSEHOLD]: hid }));
+      const rows = objs.map((o) => stamped(o, hid));
       const { error } = await supabase.from(this.table).insert(rows as never);
       if (error) throw error;
       touch();
@@ -227,13 +224,13 @@ export async function ensureConfig(): Promise<Config> {
   if (existing) return existing;
 
   const single = getHouseholdSnapshot()?.kind === "single";
+  const fresh: Omit<Config, "id"> = {
+    ...DEFAULT_CONFIG,
+    p1Name: single ? "Me" : DEFAULT_CONFIG.p1Name,
+  };
   const { data, error } = await supabase
     .from("config")
-    .insert({
-      ...DEFAULT_CONFIG,
-      p1Name: single ? "Me" : DEFAULT_CONFIG.p1Name,
-      [HOUSEHOLD]: getHouseholdId(),
-    } as never)
+    .insert(stamped(fresh, getHouseholdId()) as never)
     .select("*")
     .single();
 

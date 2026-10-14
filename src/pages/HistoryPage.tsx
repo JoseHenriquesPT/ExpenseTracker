@@ -4,7 +4,7 @@ import { db } from "../db/db";
 import type { Person, Scope } from "../db/types";
 import { filterByWindow } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
-import { monthName, personName, scopeName } from "../lib/labels";
+import { modeText, monthName, personName, scopeName } from "../lib/labels";
 import PeriodFilter, { usePeriodFilter } from "../components/PeriodFilter";
 import BackHome from "../components/BackHome";
 
@@ -16,12 +16,6 @@ const KIND_LABELS: Record<Kind, string> = {
   personal: "Individual",
   savings: "Savings",
   bill: "Bill",
-};
-
-/** Single-mode labels: "Common" would just mean "mine". */
-const SINGLE_KIND_LABELS: Record<Kind, string> = {
-  ...KIND_LABELS,
-  common: "Expense",
 };
 
 interface Row {
@@ -39,6 +33,7 @@ interface Row {
  *  and bills — savings included because they're where investments now live. */
 export default function HistoryPage() {
   const single = useSingleMode();
+  const labels = modeText(single);
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const expenses = useLiveQuery(() => db.expenses.toArray(), []);
   const personal = useLiveQuery(() => db.personalExpenses.toArray(), []);
@@ -115,7 +110,7 @@ export default function HistoryPage() {
       <div className="toolbar">
         <select value={kind} onChange={(e) => setKind(e.target.value as KindFilter)}>
           <option value="all">All types</option>
-          <option value="common">{single ? "Expenses" : "Common expenses"}</option>
+          <option value="common">{labels.expenses}</option>
           {!single && <option value="personal">Individual expenses</option>}
           <option value="savings">Savings</option>
           <option value="bill">Bills</option>
@@ -173,7 +168,7 @@ export default function HistoryPage() {
                       <td data-label="Date">{fmtDate(r.date)}</td>
                       <td data-label="Type">
                         <span className={r.kind === "savings" ? "pill savings" : "pill"}>
-                          {(single ? SINGLE_KIND_LABELS : KIND_LABELS)[r.kind]}
+                          {r.kind === "common" ? labels.expenseKind : KIND_LABELS[r.kind]}
                         </span>
                       </td>
                       <td data-label="Category">{r.category}</td>

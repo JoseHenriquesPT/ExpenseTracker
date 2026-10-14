@@ -4,11 +4,13 @@ import { db, ensureConfig } from "../db/db";
 import { supabase } from "../db/supabase";
 import {
   createInvite, listInvites, revokeInvite, upgradeToCouple,
-} from "../db/onboarding";
+} from "../db/householdApi";
+import type { Household } from "../db/household";
 import type { Config } from "../db/types";
 import { exportBackup, importBackup, parseBackupFile } from "../lib/backup";
 import { describeBackup } from "../lib/backupSchema";
 import { confirm } from "../lib/confirm";
+import { toMessage } from "../lib/errors";
 import { pushToast } from "../lib/toast";
 import { useBusy } from "../lib/useBusy";
 import { useOnline } from "../lib/useOnline";
@@ -30,39 +32,14 @@ export default function SettingsPage() {
   const online = useOnline();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const household = useHousehold();
-  const invites = useLiveQuery(
-    () => listInvites(),
-    [household?.id, household?.memberCount]
-  );
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState("");
   const [email, setEmail] = useState("");
   const { busy: importing, run: runImport } = useBusy();
   const { busy: savingNames, run: runSaveNames } = useBusy();
-  const { busy: householdBusy, run: runHousehold } = useBusy();
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ""));
   }, []);
-
-  /** Run a household action with double-submit guard + error toast. */
-  function runHouseholdAction(fn: () => Promise<void>) {
-    return runHousehold(async () => {
-      try {
-        await fn();
-      } catch (e) {
-        pushToast(e instanceof Error ? e.message : String(e), "error");
-      }
-    });
-  }
-
-  async function copyInvite(code: string) {
-    try {
-      await navigator.clipboard.writeText(code);
-      pushToast("Invite code copied", "success");
-    } catch {
-      pushToast("Couldn't copy — select the code and copy it manually.", "error");
-    }
-  }
 
   // Person names are edited locally and committed with the Save button — typing
   // no longer fires a DB write per keystroke. Seed from config, and re-sync when
@@ -120,7 +97,7 @@ export default function SettingsPage() {
       await ensureConfig();
       setStatus("Backup imported ✓");
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
+      const message = toMessage(e);
       pushToast(message, "error");
       setStatus("Import failed");
     } finally {
@@ -155,66 +132,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="panel" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>Household</h3>
-        {!household ? (
-          <p className="subtitle" style={{ margin: 0 }}>Loading…</p>
-        ) : household.kind === "single" ? (
-          <>
-            <p className="subtitle">
-              This is a one-person household. Upgrading turns on the P1/P2 split
-              and lets you invite a partner.
-            </p>
-            <button
-              className="primary"
-              disabled={!online || householdBusy}
-              onClick={() => runHouseholdAction(upgradeToCouple)}
-            >
-              {householdBusy ? "Upgrading…" : "Upgrade to a couple household"}
-            </button>
-          </>
-        ) : household.memberCount >= 2 ? (
-          <p className="subtitle" style={{ margin: 0 }}>
-            Two members — your household is full.
-          </p>
-        ) : (
-          <>
-            <p className="subtitle">
-              Invite your partner: send them the code, and they choose
-              “Join” on the welcome screen.
-            </p>
-            {invites === undefined ? (
-              <p className="subtitle" style={{ margin: 0 }}>Loading…</p>
-            ) : invites.length === 0 ? (
-              <button
-                className="primary"
-                disabled={!online || householdBusy}
-                onClick={() => runHouseholdAction(async () => { await createInvite(); })}
-              >
-                {householdBusy ? "Creating…" : "Create invite code"}
-              </button>
-            ) : (
-              <div className="tag-list">
-                {invites.map((inv) => (
-                  <span key={inv.id} className="tag">
-                    <code>{inv.code}</code>
-                    <button onClick={() => copyInvite(inv.code)} title="Copy">
-                      Copy
-                    </button>
-                    <button
-                      onClick={() => runHouseholdAction(() => revokeInvite(inv.id))}
-                      title="Revoke"
-                      disabled={!online || householdBusy}
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+      <HouseholdPanel household={household} online={online} />
 
       <div className="panel" style={{ marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>
@@ -300,6 +218,113 @@ export default function SettingsPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+function HouseholdPanel({ household, online }: { household: Household | null; online: boolean }) {
+  return (
+    <div className="panel" style={{ marginBottom: 24 }}>
+      <h3 style={{ marginTop: 0 }}>Household</h3>
+      <HouseholdBody household={household} online={online} />
+    </div>
+  );
+}
+
+/** One guarded branch per state, in order: no household yet, single (offer the
+ *  upgrade), full couple, otherwise invite management. */
+function HouseholdBody({ household, online }: { household: Household | null; online: boolean }) {
+  const invites = useLiveQuery(
+    () => listInvites(),
+    [household?.id, household?.memberCount]
+  );
+  const { busy, run } = useBusy();
+
+  /** Run a household action with double-submit guard + error toast. */
+  function action(fn: () => Promise<void>) {
+    return run(async () => {
+      try {
+        await fn();
+      } catch (e) {
+        pushToast(toMessage(e), "error");
+      }
+    });
+  }
+
+  async function copy(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      pushToast("Invite code copied", "success");
+    } catch {
+      pushToast("Couldn't copy — select the code and copy it manually.", "error");
+    }
+  }
+
+  if (!household) {
+    return <p className="subtitle" style={{ margin: 0 }}>Loading…</p>;
+  }
+
+  if (household.kind === "single") {
+    return (
+      <>
+        <p className="subtitle">
+          This is a one-person household. Upgrading turns on the P1/P2 split
+          and lets you invite a partner.
+        </p>
+        <button
+          className="primary"
+          disabled={!online || busy}
+          onClick={() => action(upgradeToCouple)}
+        >
+          {busy ? "Upgrading…" : "Upgrade to a couple household"}
+        </button>
+      </>
+    );
+  }
+
+  if (household.memberCount >= 2) {
+    return (
+      <p className="subtitle" style={{ margin: 0 }}>
+        Two members — your household is full.
+      </p>
+    );
+  }
+
+  if (invites === undefined) {
+    return <p className="subtitle" style={{ margin: 0 }}>Loading…</p>;
+  }
+
+  return (
+    <>
+      <p className="subtitle">
+        Invite your partner: send them the code, and they choose
+        “Join” on the welcome screen.
+      </p>
+      {invites.length === 0 ? (
+        <button
+          className="primary"
+          disabled={!online || busy}
+          onClick={() => action(async () => { await createInvite(); })}
+        >
+          {busy ? "Creating…" : "Create invite code"}
+        </button>
+      ) : (
+        <div className="tag-list">
+          {invites.map((inv) => (
+            <span key={inv.id} className="tag">
+              <code>{inv.code}</code>
+              <button onClick={() => copy(inv.code)} title="Copy">Copy</button>
+              <button
+                onClick={() => action(() => revokeInvite(inv.id))}
+                title="Revoke"
+                disabled={!online || busy}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { createHousehold, joinHousehold } from "../db/onboarding";
+import { createHousehold, joinHousehold } from "../db/householdApi";
 import { supabase } from "../db/supabase";
+import Centered from "../components/Centered";
 
 /**
  * First-run screen for a signed-in account that doesn't belong to a household
@@ -26,7 +27,7 @@ export default function Onboarding({ email, onDone }: { email: string; onDone: (
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
+    <Centered>
       <div className="panel" style={{ maxWidth: 460, width: "100%" }}>
         <h1 className="brand" style={{ marginTop: 0, textAlign: "center" }}>
           💰 Expense Tracker
@@ -81,6 +82,6 @@ export default function Onboarding({ email, onDone }: { email: string; onDone: (
           Sign out
         </button>
       </div>
-    </div>
+    </Centered>
   );
 }

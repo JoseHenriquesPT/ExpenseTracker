@@ -5,14 +5,14 @@ import {
 } from "recharts";
 import { useLiveQuery, useSingleMode } from "../db/live";
 import { db } from "../db/db";
-import type { Scope, Person, SettlementRecord } from "../db/types";
+import type { SettlementRecord } from "../db/types";
 import {
-  buildIncomeSplits, buildOverview, commonShareFor, computeSettlement,
+  buildIncomeSplits, buildOverview, computeSettlement,
   monthStart, monthEnd, yearStart, yearEnd, toISO,
   type CategoryTotal, type IncomeSplit, type Settlement,
 } from "../lib/finance";
 import { fmtMoney } from "../lib/format";
-import { MONTHS, monthName, personName, yearOptions } from "../lib/labels";
+import { modeText, MONTHS, monthName, personName, yearOptions } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
@@ -23,20 +23,15 @@ const PIE_COLORS = [
 ];
 
 type Mode = "monthly" | "annual";
-type Who = "Both" | Person;
 
 export default function Dashboard() {
   const now = new Date();
   const [mode, setMode] = useState<Mode>("monthly");
-  const [whoState, setWho] = useState<Who>("Both");
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
 
-  // Single mode has one person: no Both/P1/P2 switcher, no settlement; the
-  // "Both" view's numbers already describe their whole household.
   const single = useSingleMode();
-  const who: Who = single ? "Both" : whoState;
-
+  const labels = modeText(single);
   const online = useOnline();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const income = useLiveQuery(() => db.income.toArray(), []);
@@ -55,36 +50,15 @@ export default function Dashboard() {
     [mode, year, month]
   );
 
+  // The household view: common expenses and Common-tagged bills are the shared
+  // spending; individual spending and savings live in the ledgers/history.
   const overview = useMemo(() => {
     if (!ready) return null;
-    // "Both" is the shared/common household view; each person's tab shows only
-    // that person's individual items. Common expenses and common savings only
-    // appear on Both; individual ones only on a person's tab.
-    const isBoth = who === "Both";
-    const scope: Scope = isBoth ? "Common" : who;
-    const fIncome = isBoth ? income : income.filter((r) => r.person === who);
-    const fExpenses = isBoth ? expenses : [];
-    const fPersonal = isBoth ? [] : personal.filter((r) => r.person === who);
-    const fBills = bills.filter((r) => r.scope === scope);
     return buildOverview(
       {
-        income: fIncome, expenses: fExpenses, personalExpenses: fPersonal,
-        bills: fBills,
-        incomeCategories: config.incomeCategories,
-        expenseCategories: config.expenseCategories,
-        billCategories: config.billCategories,
-      },
-      start, end
-    );
-  }, [ready, who, start, end, config, income, expenses, personal, bills]);
-
-  // The common pool broken down by category. Needed on an individual tab too,
-  // where each person is charged their share of it.
-  const commonOverview = useMemo(() => {
-    if (!ready) return null;
-    return buildOverview(
-      {
-        income: [], expenses, personalExpenses: [],
+        income,
+        expenses,
+        personalExpenses: [],
         bills: bills.filter((r) => r.scope === "Common"),
         incomeCategories: config.incomeCategories,
         expenseCategories: config.expenseCategories,
@@ -92,10 +66,10 @@ export default function Dashboard() {
       },
       start, end
     );
-  }, [ready, start, end, config, expenses, bills]);
+  }, [ready, start, end, config, income, expenses, bills]);
 
-  // Per-person income split for the two pies: fair share of all spending,
-  // invested (savings) and what's left over.
+  // Per-person income split for the headline pies: fair share of the shared
+  // spending, what they invested and what's left over.
   const splits = useMemo(() => {
     if (!ready) return null;
     return buildIncomeSplits(
@@ -111,54 +85,25 @@ export default function Dashboard() {
 
   const years = useMemo(() => yearOptions(), []);
 
-  if (!overview || !commonOverview || !splits || !settlement || !config)
+  if (!overview || !splits || !settlement || !config)
     return <div className="empty">Loading…</div>;
 
   const p1 = config.p1Name;
   const p2 = config.p2Name;
-  const isBoth = who === "Both";
-
-  // On an individual tab the person also carries their income-proportional
-  // share of the household's common expenses and bills — without it their
-  // "saved" would count the shared spending as free.
-  const commonShare = isBoth
-    ? null
-    : commonShareFor(
-        commonOverview.expenses,
-        commonOverview.bills,
-        who === "P1" ? settlement.shareP1 : settlement.shareP2
-      );
-  const personSplit = isBoth ? null : who === "P1" ? splits.p1 : splits.p2;
-  const totalSaved = isBoth ? overview.totalSaved : personSplit!.saved;
 
   const totalsBar = [
     { name: "Income", value: overview.totalIncome },
-    {
-      name: isBoth ? (single ? "Expenses" : "Common Exp.") : "Individual Exp.",
-      value: isBoth ? overview.totalExpenses : overview.totalPersonal,
-    },
-    {
-      name: isBoth ? (single ? "Bills" : "Common Bills") : "Individual Bills",
-      value: overview.totalBills,
-    },
-    ...(commonShare ? [{ name: "Common Share", value: commonShare.total }] : []),
-    {
-      name: "Invested",
-      value: isBoth ? overview.totalSavings : personSplit!.invested,
-    },
-    { name: "Saved", value: totalSaved },
+    { name: labels.expensesShort, value: overview.totalExpenses },
+    { name: labels.billsShort, value: overview.totalBills },
+    { name: "Invested", value: overview.totalSavings },
+    { name: "Saved", value: overview.totalSaved },
   ];
 
-  // All money spent, merged by category across the spending sources in scope
-  // for this tab. Savings entries keep their "Savings" category, so they get a
-  // slice of their own. Common spending is deliberately absent from a person's
-  // tab — the shared pies live on Both.
+  // All spending merged by category. Savings entries keep their "Savings"
+  // category, so they get a slice of their own.
   const spendingByCategory: CategoryTotal[] = (() => {
     const m = new Map<string, number>();
-    const sources = isBoth
-      ? [...overview.expenses, ...overview.bills, ...overview.savings]
-      : [...overview.personal, ...overview.bills, ...overview.savings];
-    for (const ct of sources) {
+    for (const ct of [...overview.expenses, ...overview.bills, ...overview.savings]) {
       m.set(ct.category, (m.get(ct.category) ?? 0) + ct.value);
     }
     return [...m].map(([category, value]) => ({ category, value }));
@@ -166,55 +111,15 @@ export default function Dashboard() {
 
   return (
     <div>
-      {!single && (
-        <div className="toolbar">
-          <div className="segmented">
-            {([["Both", "Both"], ["P1", p1], ["P2", p2]] as [Who, string][]).map(
-              ([id, label]) => (
-                <button
-                  key={id}
-                  className={who === id ? "seg active" : "seg"}
-                  onClick={() => setWho(id)}
-                >
-                  {label}
-                </button>
-              )
-            )}
-          </div>
-        </div>
-      )}
-
-      {!isBoth && commonShare && (
-        <p className="subtitle" style={{ marginTop: -8 }}>
-          Showing <strong>{who === "P1" ? p1 : p2}</strong>: their income, their individual
-          expenses and individual bills, plus their{" "}
-          <strong>{(commonShare.share * 100).toFixed(1)}%</strong> share of the household’s
-          common expenses and bills
-          {settlement.usedFallbackShare
-            ? " (split 50/50 — no income recorded this period)"
-            : " (their share of the period’s income)"}
-          . The full shared totals live on the “Both” tab.
-        </p>
-      )}
-
       <div className="cards">
         <Card label="Total Income" value={overview.totalIncome} tone="pos" />
-        {isBoth ? (
-          <Card label={single ? "Expenses" : "Common Expenses"}
-                value={overview.totalExpenses} tone="neg" />
-        ) : (
-          <Card label="Individual Expenses" value={overview.totalPersonal} tone="neg" />
-        )}
-        <Card label={isBoth ? (single ? "Bills" : "Common Bills") : "Individual Bills"}
-              value={overview.totalBills} tone="neg" />
-        {commonShare && (
-          <Card label="Share of Common" value={commonShare.total} tone="neg" />
-        )}
-        <Card label="Total Saved" value={totalSaved}
-              tone={totalSaved >= 0 ? "pos" : "neg"} />
+        <Card label={labels.expenses} value={overview.totalExpenses} tone="neg" />
+        <Card label={labels.bills} value={overview.totalBills} tone="neg" />
+        <Card label="Total Saved" value={overview.totalSaved}
+              tone={overview.totalSaved >= 0 ? "pos" : "neg"} />
       </div>
 
-      {!single && who === "Both" && (
+      {!single && (
         <SettlementPanel
           s={settlement}
           p1={p1}
@@ -227,17 +132,13 @@ export default function Dashboard() {
         />
       )}
 
-      {/* The two headline pies: each person's income split into their fair
-          share of expenses, what they invested and what they saved. */}
+      {/* The headline pies: each person's income split into their fair share of
+          the shared spending, what they invested and what they saved. */}
       <div className="charts">
         <PieCard title="Spending by category" data={spendingByCategory} />
         <PieCard title="Income by category" data={overview.income} />
-        {!isBoth && (
-          <PieCard title="Individual expenses by category" data={overview.personal} />
-        )}
-        {single && <PersonPie title="Your Totals" split={splits.p1} />}
-        {!single && isBoth && <PersonPie title={`${p1}'s Totals`} split={splits.p1} />}
-        {!single && isBoth && <PersonPie title={`${p2}'s Totals`} split={splits.p2} />}
+        <PersonPie title={labels.totalsTitle(p1)} split={splits.p1} />
+        {!single && <PersonPie title={labels.totalsTitle(p2)} split={splits.p2} />}
       </div>
 
       <div className="chart-card panel" style={{ marginTop: 16 }}>

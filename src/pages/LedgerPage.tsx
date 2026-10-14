@@ -4,7 +4,7 @@ import { useLiveQuery, useSingleMode } from "../db/live";
 import { db, type SupaTable } from "../db/db";
 import type { Entry, ExpenseEntry, IncomeEntry, Person } from "../db/types";
 import { filterByWindow, monthEnd, monthStart, SAVINGS_CATEGORY, toISO } from "../lib/finance";
-import { monthName, personName } from "../lib/labels";
+import { modeText, monthName, personName } from "../lib/labels";
 import { fmtMoney, fmtDate } from "../lib/format";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
@@ -14,19 +14,6 @@ import BackHome from "../components/BackHome";
 
 type Kind = "expenses" | "income" | "personalExpenses";
 type EntryMode = "expense" | "savings";
-
-const TITLES: Record<Kind, string> = {
-  expenses: "Common Expenses",
-  income: "Income",
-  personalExpenses: "Individual Expenses",
-};
-
-/** Single-mode titles: one person, so no "Common" prefix. */
-const SINGLE_TITLES: Record<Kind, string> = {
-  expenses: "Expenses",
-  income: "Income",
-  personalExpenses: "Individual Expenses",
-};
 
 // Short labels for the subtab switcher (when a page groups several kinds).
 const SUBTAB_LABELS: Record<Kind, string> = {
@@ -43,11 +30,12 @@ const NOTES: Record<Kind, string> = {
     "Personal spending — not shared, not settled. “Saved into investments” is money moved to investments, not spending.",
 };
 
+/** Single-mode overrides: there is no "Common" counterpart to distinguish. */
 const SINGLE_NOTES: Record<Kind, string> = {
+  ...NOTES,
   expenses:
     "What you spend. “Saved into investments” is money moved to investments, not spending.",
   income: "Your income.",
-  personalExpenses: "",
 };
 
 type Row = Entry &
@@ -57,26 +45,29 @@ type Row = Entry &
 export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   // The active subtab drives everything; defaults to the first tab (Common for
   // the merged Expenses page). A single-tab page just hides the switcher.
-  const [kindState, setKind] = useState<Kind>(tabs[0]);
+  const [kind, setKind] = useState<Kind>(tabs[0]);
   const [entryMode, setEntryMode] = useState<EntryMode>("expense");
   const single = useSingleMode();
-  // A one-person household has no Individual ledger: that subtab disappears and
-  // anything that was on it is treated as the single Expenses ledger.
+  const labels = modeText(single);
+  // A one-person household has no Individual ledger: that subtab disappears.
+  // `kind` starts at tabs[0] and is only ever set from the visible buttons, so
+  // it always names a visible ledger.
   const visibleTabs = single
     ? tabs.filter((t) => t !== "personalExpenses")
     : tabs;
-  const kind: Kind = visibleTabs.includes(kindState) ? kindState : visibleTabs[0];
-  const pageTitle = visibleTabs.length > 1
-    ? "Expenses & Savings"
-    : single
-    ? SINGLE_TITLES[kind]
-    : TITLES[kind];
 
   const isExpense = kind === "expenses";
   const isIncome = kind === "income";
   const isPersonal = kind === "personalExpenses";
   const canSave = isExpense || isPersonal;
   const isSavings = canSave && entryMode === "savings";
+  const pageTitle = visibleTabs.length > 1
+    ? "Expenses & Savings"
+    : {
+        expenses: labels.expenses,
+        income: "Income",
+        personalExpenses: "Individual Expenses",
+      }[kind];
   const online = useOnline();
   const { busy, run } = useBusy();
 

@@ -1,8 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../db/supabase";
-import { fetchHousehold } from "../db/onboarding";
+import { fetchHousehold } from "../db/householdApi";
 import { setHousehold as setActiveHousehold, type Household } from "../db/household";
+import { toMessage } from "../lib/errors";
+import Centered from "../components/Centered";
 import Onboarding from "./Onboarding";
 
 /**
@@ -55,7 +57,10 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     return () => {
       alive = false;
     };
-  }, [session, attempt]);
+    // Keyed on the user id, not the session object: Supabase fires
+    // TOKEN_REFRESHED (roughly hourly) with a fresh session object for the same
+    // user, and re-running would flash the checking screen and refetch.
+  }, [session?.user.id, attempt]);
 
   if (loading) return <Centered>Loading…</Centered>;
   if (!session) return <SignIn />;
@@ -70,21 +75,6 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     );
   }
   return <>{children}</>;
-}
-
-function Centered({ children }: { children: ReactNode }) {
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        padding: 24,
-      }}
-    >
-      {children}
-    </div>
-  );
 }
 
 function SignIn() {
@@ -103,7 +93,7 @@ function SignIn() {
       options: { emailRedirectTo: window.location.origin },
     });
     setBusy(false);
-    if (err) setError(err.message);
+    if (err) setError(toMessage(err));
     else setSent(true);
   }
 

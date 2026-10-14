@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildIncomeSplits,
   buildOverview,
-  commonShareFor,
   computeSettlement,
   filterByWindow,
   investmentUnits,
@@ -178,24 +177,6 @@ describe("buildOverview", () => {
     expect(out.totalPersonal).toBe(0);
     expect(out.totalSavings).toBe(250);
     expect(out.savings).toEqual([{ category: SAVINGS_CATEGORY, value: 250 }]);
-  });
-});
-
-describe("commonShareFor", () => {
-  it("scales the pool and merges same-named categories", () => {
-    const common = commonShareFor(
-      [{ category: "Comida", value: 100 }, { category: "Bebidas", value: 50 }],
-      [{ category: "Comida", value: 50 }],
-      0.5
-    );
-    expect(common.share).toBe(0.5);
-    expect(common.expenses).toBe(75);
-    expect(common.bills).toBe(25);
-    expect(common.total).toBe(100);
-    expect(common.byCategory).toEqual([
-      { category: "Comida", value: 75 },
-      { category: "Bebidas", value: 25 },
-    ]);
   });
 });
 

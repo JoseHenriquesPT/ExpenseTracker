@@ -206,57 +206,6 @@ export function buildOverview(
 }
 
 // ---------------------------------------------------------------------------
-// A person's share of the common (shared) pool
-// ---------------------------------------------------------------------------
-
-export interface CommonShare {
-  /** Fraction of the shared pool this person carries. */
-  share: number;
-  /** Their share of the common expenses. */
-  expenses: number;
-  /** Their share of the Common-scoped bills. */
-  bills: number;
-  /** expenses + bills — what the shared household actually costs them. */
-  total: number;
-  /** Their share of each common category, expenses and bills merged by name. */
-  byCategory: CategoryTotal[];
-}
-
-/**
- * Scale the common pool down to one person's share of it.
- *
- * An individual tab has to carry the part of the household's shared spending
- * that is that person's, otherwise their "saved" reads as if the common
- * expenses and bills were free. The fraction is the same income-proportional
- * share the settlement uses (see {@link computeSettlement}), so what a tab
- * charges someone matches what they end up paying once the period is settled —
- * regardless of who happened to front the money.
- */
-export function commonShareFor(
-  commonExpenses: CategoryTotal[],
-  commonBills: CategoryTotal[],
-  share: number
-): CommonShare {
-  const expenses = sum(commonExpenses) * share;
-  const bills = sum(commonBills) * share;
-
-  // Same category from expenses and bills collapses into one entry, matching
-  // how the Dashboard merges its spending sources.
-  const m = new Map<string, number>();
-  for (const ct of [...commonExpenses, ...commonBills]) {
-    m.set(ct.category, (m.get(ct.category) ?? 0) + ct.value * share);
-  }
-
-  return {
-    share,
-    expenses,
-    bills,
-    total: expenses + bills,
-    byCategory: [...m].map(([category, value]) => ({ category, value })),
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Investment holdings & realized profit (average-cost basis)
 // ---------------------------------------------------------------------------
 

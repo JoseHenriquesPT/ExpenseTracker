@@ -9,10 +9,10 @@ import { pushToast } from "../lib/toast";
 // A tiny reactive layer powering every page's live data.
 //
 // A module-level version counter bumps on (a) any Postgres change broadcast by
-// Supabase realtime — so the *other* person's edits show up live — and (b) every
+// Supabase realtime — so the other devices' edits show up live — and (b) every
 // local mutation via db.ts's touch(), so your own edits reflect immediately even
 // if the realtime socket is momentarily behind. Every useLiveQuery re-runs when
-// the version changes. Fine for a two-person app with small tables.
+// the version changes. Fine for small household datasets.
 
 let version = 0;
 const listeners = new Set<() => void>();
@@ -28,7 +28,7 @@ export function touch(): void {
 //
 // RLS-protected postgres_changes bind the user's JWT at subscribe time, so a
 // channel created before the session is restored would never receive the other
-// person's edits. The householdId filter stops other tenants' changes from
+// devices' edits. The householdId filter stops other tenants' changes from
 // waking every query; migration 0012 sets replica identity full so DELETE
 // events (which otherwise carry only the primary key) pass that filter too.
 // ---------------------------------------------------------------------------

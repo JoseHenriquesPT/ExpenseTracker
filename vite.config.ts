@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
-// Hosted two-person app (Supabase + Google auth). The PWA config makes it
+// Hosted household app (Supabase + sign-in). The PWA config makes it
 // installable to a phone home screen and runs it fullscreen ("standalone").
 export default defineConfig({
   plugins: [
@@ -13,7 +13,7 @@ export default defineConfig({
       manifest: {
         name: "Expense Tracker",
         short_name: "Expenses",
-        description: "Private two-person expense tracker",
+        description: "Private household expense tracker",
         theme_color: "#0f1220",
         background_color: "#0f1220",
         display: "standalone",

@@ -413,3 +413,110 @@ describe("no settlement and hide-paid-by settings", () => {
     ).toThrow(/hidePaidBy/);
   });
 });
+
+describe("validateBackup hardening", () => {
+  it("rejects negative money on every amount field", () => {
+    expect(() =>
+      validateBackup(withRow("expenses", {
+        date: "2026-06-03", value: -1, category: "Comida", paidBy: "P1",
+      }))
+    ).toThrow(/value/);
+    expect(() =>
+      validateBackup(withRow("income", {
+        date: "2026-06-03", value: -0.01, category: "Emprego", person: "P1",
+      }))
+    ).toThrow(/value/);
+    expect(() =>
+      validateBackup(withRow("settlements", {
+        date: "2026-06-30", periodStart: "2026-06-01", periodEnd: "2026-06-30",
+        from: "P2", to: "P1", amount: -5,
+      }))
+    ).toThrow(/amount/);
+    expect(() =>
+      validateBackup(withRow("plannedExpenses", {
+        name: "Couch", links: [], purchased: true,
+        purchasedDate: "2026-06-03", finalValue: -10, scope: "P1",
+      }))
+    ).toThrow(/finalValue/);
+  });
+
+  it("rejects absurdly large money values", () => {
+    expect(() =>
+      validateBackup(withRow("expenses", {
+        date: "2026-06-03", value: 1e308, category: "Comida", paidBy: "P1",
+      }))
+    ).toThrow(/value/);
+    expect(() =>
+      validateBackup(withRow("expenses", {
+        date: "2026-06-03", value: 1e9, category: "Comida", paidBy: "P1",
+      }))
+    ).toThrow(/value/);
+  });
+
+  it("still accepts a zero-value entry", () => {
+    const out = validateBackup(withRow("expenses", {
+      date: "2026-06-03", value: 0, category: "Comida", paidBy: "P1",
+    }));
+    expect(out.expenses[0].value).toBe(0);
+  });
+
+  it("rejects over-long strings", () => {
+    expect(() =>
+      validateBackup(withRow("expenses", {
+        date: "2026-06-03", value: 1, category: "x".repeat(501), paidBy: "P1",
+      }))
+    ).toThrow(/category/);
+    expect(() =>
+      validateBackup(withRow("expenses", {
+        date: "2026-06-03", value: 1, category: "Comida", paidBy: "P1",
+        description: "x".repeat(501),
+      }))
+    ).toThrow(/description/);
+    expect(() =>
+      validateBackup(withRow("plannedExpenses", {
+        name: "x".repeat(501), links: [],
+      }))
+    ).toThrow(/name/);
+  });
+
+  it("rejects over-long string lists", () => {
+    expect(() =>
+      validateBackup(withRow("plannedExpenses", {
+        name: "Couch", links: [], tags: Array.from({ length: 201 }, (_, i) => `t${i}`),
+      }))
+    ).toThrow(/tags/);
+    expect(() =>
+      validateBackup(withRow("config", {
+        key: "config", p1Name: "A", p2Name: "B",
+        incomeCategories: Array.from({ length: 201 }, (_, i) => `c${i}`),
+        expenseCategories: [], billCategories: [], investmentCategories: [],
+        actions: ["Invested"],
+      }))
+    ).toThrow(/incomeCategories/);
+  });
+
+  it("rejects unsafe link URLs", () => {
+    expect(() =>
+      validateBackup(withRow("plannedExpenses", {
+        name: "Couch",
+        links: [{ text: "Idea", url: "javascript:alert(1)" }],
+      }))
+    ).toThrow(/links\[0\]/);
+    expect(() =>
+      validateBackup(withRow("plannedExpenses", {
+        name: "Couch",
+        links: [{ text: "Idea", url: "data:text/html,<script>alert(1)</script>" }],
+      }))
+    ).toThrow(/links\[0\]/);
+  });
+
+  it("rejects a table with more rows than the per-table cap", () => {
+    const rows = Array.from({ length: 20001 }, (_, i) => ({
+      date: "2026-06-03", value: 1, category: "Comida", paidBy: "P1",
+      description: `row ${i}`,
+    }));
+    expect(() => validateBackup({ ...validBackup(), expenses: rows })).toThrow(
+      /rows/i,
+    );
+  });
+});

@@ -463,6 +463,7 @@ const en = {
     householdNotLoaded: "Household not loaded yet — sign-in must resolve it first.",
     backupTooLarge: "Backup file is larger than 25 MB.",
     backupNotJson: "Backup file isn't valid JSON.",
+    unknown: "Something went wrong — please try again.",
     backupMissingMigration:
       "The database is missing migration 0005 — run supabase/migrations/0005_import_backup_rpc.sql, then try again.",
     rpc: {
@@ -481,6 +482,7 @@ const en = {
       noHouseholdImport: "This account has no household — nothing to import into.",
       alreadyBelongs: "This account already belongs to a household.",
       ownerOnly: "Only the household owner can change this.",
+      ownerOnlyDismantle: "Only the household owner can dismantle it.",
       upgradeOnlySingle:
         "Only upgrading a single household to a couple one is supported.",
       alreadyCouple: "This household is already a couple household.",

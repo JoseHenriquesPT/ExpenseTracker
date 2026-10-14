@@ -48,9 +48,18 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     let alive = true;
     setHouseholdState(undefined);
     setFailed(false);
-    // The household resolves before the app mounts, so the data layer has a
-    // household to scope every query to.
-    fetchHousehold()
+    // Claim first: a pending (email-only) membership row becomes bound to this
+    // account's userId (migration 0017) before the household resolves. Never
+    // blocks sign-in if the RPC is unavailable. The household resolves before
+    // the app mounts, so the data layer has a household to scope every query to.
+    (async () => {
+      try {
+        await supabase.rpc("claim_pending_membership");
+      } catch {
+        // best-effort: an older database just means no pending row to claim
+      }
+      return fetchHousehold();
+    })()
       .then((resolved) => {
         if (!alive) return;
         setActiveHousehold(resolved);

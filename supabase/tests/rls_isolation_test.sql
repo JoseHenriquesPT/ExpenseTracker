@@ -105,10 +105,11 @@ select results_eq(
   $q$ select 0::bigint $q$,
   'alice cannot delete household 2 rows');
 
-select lives_ok(
+select throws_ok(
   'insert into public.expenses (date, value, category) values (''2026-02-01'', 1, ''Test'')',
-  'alice can insert without householdId (old clients get the default household)');
-select is((select count(*) from public.expenses), 3::bigint, 'alice now sees her 3 expenses');
+  '42501', null,
+  'alice cannot insert without householdId (no default household since 0017)');
+select is((select count(*) from public.expenses), 2::bigint, 'alice still sees her 2 expenses');
 select results_eq(
   $q$ with u as (
         update public.expenses set description = 'updated'
@@ -164,8 +165,8 @@ set local "request.jwt.claims" = '{"sub":"44444444-4444-4444-4444-444444444444",
 select is((select count(*) from public.expenses), 0::bigint, 'dave (no household) sees no expenses');
 select is((select count(*) from public.households), 0::bigint, 'dave (no household) sees no households');
 select throws_ok(
-  'insert into public.expenses (date, value, category) values (''2026-03-01'', 1, ''X'')',
-  '42501', null, 'dave cannot insert even with the default household');
+  'insert into public.expenses ("householdId", date, value, category) values (1, ''2026-03-01'', 1, ''X'')',
+  '42501', null, 'dave cannot insert into household 1');
 
 reset role;
 

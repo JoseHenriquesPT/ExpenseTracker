@@ -468,6 +468,7 @@ const pl: typeof en = {
       "Gospodarstwo domowe jeszcze nie wczytane — logowanie musi je ustalić najpierw.",
     backupTooLarge: "Plik kopii zapasowej ma ponad 25 MB.",
     backupNotJson: "Plik kopii zapasowej nie jest poprawnym plikiem JSON.",
+    unknown: "Coś poszło nie tak — spróbuj ponownie.",
     backupMissingMigration:
       "W bazie danych brakuje migracji 0005 — uruchom supabase/migrations/0005_import_backup_rpc.sql i spróbuj ponownie.",
     rpc: {
@@ -487,6 +488,8 @@ const pl: typeof en = {
       noHouseholdImport: "To konto nie ma gospodarstwa domowego — nic do importowania.",
       alreadyBelongs: "To konto należy już do gospodarstwa domowego.",
       ownerOnly: "Tylko właściciel gospodarstwa domowego może to zmienić.",
+      ownerOnlyDismantle:
+        "Tylko właściciel gospodarstwa domowego może je zlikwidować.",
       upgradeOnlySingle:
         "Można tylko uaktualnić gospodarstwo jednej osoby do gospodarstwa pary.",
       alreadyCouple: "To gospodarstwo domowe jest już gospodarstwem pary.",

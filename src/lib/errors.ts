@@ -21,19 +21,26 @@ const SERVER_MESSAGES = {
   "This account has no household — nothing to import into.": "errors.rpc.noHouseholdImport",
   "This account already belongs to a household.": "errors.rpc.alreadyBelongs",
   "Only the household owner can change this.": "errors.rpc.ownerOnly",
+  "Only the household owner can dismantle it.": "errors.rpc.ownerOnlyDismantle",
   "Only upgrading a single household to a couple one is supported.": "errors.rpc.upgradeOnlySingle",
   "This household is already a couple household.": "errors.rpc.alreadyCouple",
 } as const satisfies Record<string, string>;
 
 /** Turn any thrown value into a short, user-facing sentence. Network failures
- *  get a friendly phrasing instead of the browser's "Failed to fetch", and
- *  known server messages are translated. */
+ *  get a friendly phrasing instead of the browser's "Failed to fetch", known
+ *  server messages are translated, and anything else collapses to one generic
+ *  sentence — raw database errors (constraint names, type errors) go to the
+ *  console, never to the screen. */
 export function toMessage(e: unknown): string {
   const msg = (e as { message?: string })?.message ?? String(e);
+  // Backup validation errors are written for the user (table/row + what's
+  // wrong) and contain no server internals — show them as-is.
+  if ((e as { name?: string })?.name === "BackupValidationError") return msg;
   if (/failed to fetch|networkerror|load failed|fetch/i.test(msg)) {
     return i18n.t("errors.network");
   }
   const key = SERVER_MESSAGES[msg as keyof typeof SERVER_MESSAGES];
   if (key) return i18n.t(key);
-  return msg;
+  console.error("Unmapped error:", msg);
+  return i18n.t("errors.unknown");
 }

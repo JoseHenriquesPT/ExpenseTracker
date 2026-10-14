@@ -3,6 +3,7 @@ import type {
   Person, PersonalExpenseEntry, PlannedExpense, Scope, SettlementRecord,
 } from "../db/types";
 import i18n from "../i18n";
+import { safeUrl } from "./links";
 
 /** A backup row as stored in the exported JSON (ids are ignored on import). */
 export type BackupRow<T extends { id?: number }> = Omit<T, "id">;
@@ -67,9 +68,20 @@ function numField(row: Row, key: string, where: string): number {
   return v;
 }
 
+/** A money amount: finite, non-negative and below a billion, so a crafted
+ *  backup can't plant negatives or values that blow up charts and sums. */
+function moneyField(row: Row, key: string, where: string): number {
+  const v = numField(row, key, where);
+  if (v < 0 || v >= 1e9) {
+    fail(where, `"${key}" must be between 0 and 999999999`);
+  }
+  return v;
+}
+
 function stringField(row: Row, key: string, where: string): string {
   const v = row[key];
   if (typeof v !== "string") fail(where, `"${key}" must be a string`);
+  if (v.length > 500) fail(where, `"${key}" must be at most 500 characters`);
   return v;
 }
 
@@ -77,6 +89,7 @@ function optionalString(row: Row, key: string, where: string): string | undefine
   const v = row[key];
   if (v === undefined || v === null) return undefined;
   if (typeof v !== "string") fail(where, `"${key}" must be a string`);
+  if (v.length > 500) fail(where, `"${key}" must be at most 500 characters`);
   return v;
 }
 
@@ -117,6 +130,7 @@ function stringList(row: Row, key: string, where: string): string[] {
   if (!Array.isArray(v) || v.some((x) => typeof x !== "string")) {
     fail(where, `"${key}" must be an array of strings`);
   }
+  if (v.length > 200) fail(where, `"${key}" must have at most 200 entries`);
   return v as string[];
 }
 
@@ -129,7 +143,8 @@ function boolField(row: Row, key: string, where: string): boolean {
   return v;
 }
 
-/** The links list on a planned expense: each row needs both a text and a URL. */
+/** The links list on a planned expense: each row needs both a text and a URL,
+ *  and the URL must be a safe http/https/mailto link (never javascript:). */
 function plannedLinks(row: Row, where: string): PlannedExpense["links"] {
   const v = row.links;
   if (v === undefined || v === null) return [];
@@ -137,7 +152,12 @@ function plannedLinks(row: Row, where: string): PlannedExpense["links"] {
   return v.map((item, j) => {
     const at = `${where}.links[${j}]`;
     if (!isRecord(item)) fail(at, "must be an object");
-    return { text: stringField(item, "text", at), url: stringField(item, "url", at) };
+    const text = stringField(item, "text", at);
+    const url = stringField(item, "url", at);
+    if (safeUrl(url) === null) {
+      fail(at, `"url" must be an http, https or mailto link`);
+    }
+    return { text, url };
   });
 }
 
@@ -148,16 +168,21 @@ function entryFields(row: Row, where: string) {
   if (!category) fail(where, `"category" must not be empty`);
   return {
     date: dateField(row, "date", where),
-    value: numField(row, "value", where),
+    value: moneyField(row, "value", where),
     category,
     ...(description !== undefined ? { description } : {}),
   };
 }
 
+const MAX_TABLE_ROWS = 20000;
+
 function tableRows(input: Row, table: string): Row[] {
   const v = input[table];
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v)) fail(`"${table}"`, "must be an array");
+  if (v.length > MAX_TABLE_ROWS) {
+    fail(`"${table}"`, `has too many rows (max ${MAX_TABLE_ROWS})`);
+  }
   return v.map((row, i) => {
     if (!isRecord(row)) fail(`${table}[${i}]`, "must be an object");
     return row;
@@ -243,7 +268,7 @@ export function validateBackup(input: unknown): BackupData {
     return {
       ...draft,
       purchasedDate: dateField(row, "purchasedDate", where),
-      finalValue: numField(row, "finalValue", where),
+      finalValue: moneyField(row, "finalValue", where),
       scope,
       ...(scope === "Common"
         ? { paidBy: enumField(row, "paidBy", PEOPLE, where) as Person }
@@ -259,7 +284,7 @@ export function validateBackup(input: unknown): BackupData {
       periodEnd: dateField(row, "periodEnd", where),
       from: enumField(row, "from", PEOPLE, where) as Person,
       to: enumField(row, "to", PEOPLE, where) as Person,
-      amount: numField(row, "amount", where),
+      amount: moneyField(row, "amount", where),
     };
   });
 

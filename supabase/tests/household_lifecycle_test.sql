@@ -18,7 +18,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(45);
+select plan(46);
 
 create temp table ids (name text primary key, id bigint);
 -- The assertions run as `authenticated`; let them read the fixture table.
@@ -60,9 +60,8 @@ select lives_ok(
   $q$ select public.create_household('couple') $q$,
   'alice creates a couple household');
 select lives_ok(
-  $q$ insert into public.household_invites ("householdId", code)
-      select id, 'MERGECODE' from public.current_household() $q$,
-  'alice creates an invite for the merge');
+  $q$ select public.create_invite() $q$,
+  'alice can create an invite for the merge');
 select lives_ok(
   $q$ insert into public.config ("householdId", "p1Name", "p2Name")
       select id, 'Alice', 'Bob' from public.current_household() $q$,
@@ -71,6 +70,10 @@ select lives_ok(
 reset role;
 insert into ids select 'alice', "householdId" from public.household_members
   where "userId" = 'aaaa1111-1111-1111-1111-111111111111';
+-- Give alice's generated invite a known code so the merge can address it.
+update public.household_invites set code = 'MERGECODE'
+where "householdId" = (select id from ids where name = 'alice')
+  and "usedAt" is null;
 
 -- ---------------------------------------------------------------------------
 -- BOB — his own couple household with a past expense, a current-month income
@@ -150,11 +153,21 @@ select lives_ok(
   $q$ select public.create_household('couple') $q$,
   'dave creates a couple household');
 select lives_ok(
-  $q$ insert into public.household_invites ("householdId", code)
-      select id, c.code from public.current_household(), (values ('DAVEMERGE'), ('DAVEFULL')) as c(code) $q$,
-  'dave creates two invites');
+  $q$ select public.create_invite() from generate_series(1, 2) $q$,
+  'dave creates two invites through the RPC');
 
 reset role;
+-- Give dave's generated invites known codes so the tests can address them.
+update public.household_invites set code = 'DAVEMERGE'
+where id = (select min(id) from public.household_invites
+            where "householdId" = (select "householdId" from public.household_members
+                                   where "userId" = 'dddd4444-4444-4444-4444-444444444444')
+              and "usedAt" is null);
+update public.household_invites set code = 'DAVEFULL'
+where id = (select max(id) from public.household_invites
+            where "householdId" = (select "householdId" from public.household_members
+                                   where "userId" = 'dddd4444-4444-4444-4444-444444444444')
+              and "usedAt" is null);
 
 -- bob is in a two-member household: he cannot merge anywhere.
 set local role authenticated;
@@ -231,7 +244,9 @@ select throws_ok(
 reset role;
 
 -- ---------------------------------------------------------------------------
--- DISMANTLE — alice's household holds both people plus rows; bob dismantles.
+-- DISMANTLE — alice's household holds both people plus rows. Dismantling is
+-- owner-only (migration 0017): bob (a plain member) is refused, alice (the
+-- owner) tears it down.
 -- ---------------------------------------------------------------------------
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub":"aaaa1111-1111-1111-1111-111111111111","email":"alice@test.local"}';
@@ -256,9 +271,18 @@ reset role;
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub":"bbbb2222-2222-2222-2222-222222222222","email":"bob@test.local"}';
 
+select throws_ok(
+  $q$ select public.dismantle_household() $q$,
+  'P0001', null, 'a member who is not the owner cannot dismantle');
+
+reset role;
+
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub":"aaaa1111-1111-1111-1111-111111111111","email":"alice@test.local"}';
+
 select lives_ok(
   $q$ select public.dismantle_household() $q$,
-  'any member can dismantle the household');
+  'the household owner can dismantle');
 
 reset role;
 

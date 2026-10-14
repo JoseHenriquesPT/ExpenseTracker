@@ -5,6 +5,7 @@ import {
   getHouseholdSnapshot, onHouseholdChange, type Household,
 } from "./household";
 import { pushToast } from "../lib/toast";
+import { toMessage } from "../lib/errors";
 import i18n from "../i18n";
 
 // A tiny reactive layer powering every page's live data.
@@ -39,11 +40,40 @@ let householdId: number | null = null;
 let channel: ReturnType<typeof supabase.channel> | null = null;
 let channelHouseholdId: number | null = null;
 
-function stopLiveSync(): void {
+// A dead socket never recovers on its own: on CHANNEL_ERROR/TIMED_OUT the
+// channel is rebuilt with a capped backoff (fresh JWT binding each time).
+// Stopping the sync (sign-out, household gone) cancels any pending retry.
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let retryDelayMs = 5_000;
+
+function clearRetryTimer(): void {
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = null;
+}
+
+function dropChannel(): void {
   channelHouseholdId = null;
   if (!channel) return;
   supabase.removeChannel(channel);
   channel = null;
+}
+
+function stopLiveSync(): void {
+  clearRetryTimer();
+  retryDelayMs = 5_000;
+  dropChannel();
+}
+
+function scheduleResubscribe(): void {
+  if (retryTimer || channelHouseholdId == null) return;
+  const hid = channelHouseholdId;
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    if (!session || householdId !== hid) return;
+    retryDelayMs = Math.min(retryDelayMs * 2, 60_000);
+    dropChannel();
+    syncLiveSync();
+  }, retryDelayMs);
 }
 
 function syncLiveSync(): void {
@@ -52,7 +82,8 @@ function syncLiveSync(): void {
     return;
   }
   if (channel && channelHouseholdId === householdId) return;
-  stopLiveSync();
+  clearRetryTimer();
+  dropChannel();
   channelHouseholdId = householdId;
   channel = supabase
     .channel("db-changes")
@@ -64,6 +95,9 @@ function syncLiveSync(): void {
     .subscribe((status) => {
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         console.warn("Realtime channel unavailable:", status);
+        scheduleResubscribe();
+      } else if (status === "SUBSCRIBED") {
+        retryDelayMs = 5_000;
       }
     });
 }
@@ -104,7 +138,8 @@ function getSnapshot(): number {
 let lastError = "";
 let lastErrorAt = 0;
 
-/** Surface a failed query without flooding the toaster on every retry. */
+/** Surface a failed query without flooding the toaster on every retry. Raw
+ *  server text goes to the console only; the toast shows the mapped sentence. */
 function reportQueryError(e: unknown): void {
   console.error("useLiveQuery:", e);
   const message = e instanceof Error ? e.message : String(e);
@@ -112,7 +147,7 @@ function reportQueryError(e: unknown): void {
   if (message !== lastError || now - lastErrorAt > 10_000) {
     lastError = message;
     lastErrorAt = now;
-    pushToast(i18n.t("errors.query", { message }), "error");
+    pushToast(i18n.t("errors.query", { message: toMessage(e) }), "error");
   }
 }
 

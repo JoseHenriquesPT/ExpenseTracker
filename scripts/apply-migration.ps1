@@ -15,19 +15,32 @@
 param(
   [Parameter(Mandatory = $true, Position = 0)]
   [string]$MigrationFile,
-  [switch]$Force
+  [switch]$Force,
+  [switch]$AllowAnyPath
 )
 
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $envFile = Join-Path $repoRoot "supabase\.env.prod.local"
+$migrationsDir = Join-Path $repoRoot "supabase\migrations"
 $image = "public.ecr.aws/supabase/postgres:17.11.0.004"
 
 if (-not (Test-Path -LiteralPath $MigrationFile)) {
   throw "Migration file not found: $MigrationFile"
 }
 $migrationPath = (Resolve-Path -LiteralPath $MigrationFile).Path
+
+# Only real migration files run against production by default. Anything else
+# (scratch SQL, exports, experiments) needs an explicit -AllowAnyPath.
+$migrationsRoot = (Resolve-Path -LiteralPath $migrationsDir).Path
+if (-not $AllowAnyPath) {
+  $inMigrations = $migrationPath.StartsWith($migrationsRoot, [System.StringComparison]::OrdinalIgnoreCase)
+  $isMigrationName = [System.IO.Path]::GetFileName($migrationPath) -match '^\d{4}_.+\.sql$'
+  if (-not ($inMigrations -and $isMigrationName)) {
+    throw "Refusing to run '$migrationPath': not a supabase/migrations/NNNN_*.sql file. Use -AllowAnyPath to override."
+  }
+}
 
 if (-not (Test-Path -LiteralPath $envFile)) {
   throw @"
@@ -56,9 +69,18 @@ if (-not $Force) {
 }
 
 Write-Host "Applying $name ..."
-docker run --rm -i `
-  -v "${migrationPath}:/migration.sql:ro" `
-  $image psql "$url" -w -v ON_ERROR_STOP=1 --single-transaction -f /migration.sql
+# The password travels as PGPASSWORD (container env) instead of a command-line
+# argument, so it doesn't show up in the container's process list.
+$pgPassword = $null
+$safeUrl = $url
+if ($url -match '^postgresql://([^:@/]+):([^@]+)@') {
+  $pgPassword = $matches[2]
+  $safeUrl = $url -replace '://([^:@/]+):[^@]+@', '://$1@'
+}
+$dockerArgs = @("run", "--rm", "-i")
+if ($pgPassword) { $dockerArgs += @("-e", "PGPASSWORD=$pgPassword") }
+$dockerArgs += @("-v", "${migrationPath}:/migration.sql:ro", $image, "psql", $safeUrl, "-w", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", "/migration.sql")
+& docker @dockerArgs
 if ($LASTEXITCODE -ne 0) {
   throw "Migration failed (exit code $LASTEXITCODE) - nothing was applied (single transaction)."
 }

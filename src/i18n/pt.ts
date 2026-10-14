@@ -463,6 +463,7 @@ const pt: typeof en = {
     householdNotLoaded: "Agregado ainda não carregado — o início de sessão deve resolvê-lo primeiro.",
     backupTooLarge: "O ficheiro de cópia de segurança tem mais de 25 MB.",
     backupNotJson: "O ficheiro de cópia de segurança não é JSON válido.",
+    unknown: "Algo correu mal — tente novamente.",
     backupMissingMigration:
       "À base de dados falta a migração 0005 — execute supabase/migrations/0005_import_backup_rpc.sql e tente novamente.",
     rpc: {
@@ -481,6 +482,8 @@ const pt: typeof en = {
       noHouseholdImport: "Esta conta não tem agregado familiar — nada para importar.",
       alreadyBelongs: "Esta conta já pertence a um agregado familiar.",
       ownerOnly: "Apenas o responsável do agregado familiar pode alterar isto.",
+      ownerOnlyDismantle:
+        "Apenas o responsável do agregado familiar pode dissolver isto.",
       upgradeOnlySingle:
         "Só é possível atualizar um agregado de uma pessoa para um de casal.",
       alreadyCouple: "Este agregado familiar já é de casal.",

@@ -8,6 +8,7 @@ import { fmtMoney, fmtDate } from "../lib/format";
 import { personName, scopeName, type PersonNames } from "../lib/labels";
 import { purchaseEntry, purchasedPlanPatch } from "../lib/planned";
 import { availableTags, filterByTags, toggleTag } from "../lib/plannedTags";
+import { safeUrl } from "../lib/links";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
@@ -22,7 +23,7 @@ function withOneRow(links: PlannedLink[]): PlannedLink[] {
 function cleanLinks(links: PlannedLink[]): PlannedLink[] {
   return links
     .map((l) => ({ text: l.text.trim(), url: l.url.trim() }))
-    .filter((l) => l.url);
+    .filter((l) => l.url && safeUrl(l.url));
 }
 
 export default function PlannedPage() {
@@ -397,11 +398,20 @@ function PlannedLinks({ links }: { links: PlannedLink[] }) {
   // that gets cut, ending in "…" on its own line.
   return (
     <div className="plan-links read-only">
-      {urls.map((l, i) => (
-        <a key={i} href={l.url} target="_blank" rel="noreferrer" title={l.url}>
-          {l.url}
-        </a>
-      ))}
+      {urls.map((l, i) => {
+        // Only http/https/mailto ever become an anchor; anything else (old
+        // data, a crafted backup) shows as plain text, never as href.
+        const href = safeUrl(l.url);
+        return href ? (
+          <a key={i} href={href} target="_blank" rel="noreferrer" title={l.url}>
+            {l.url}
+          </a>
+        ) : (
+          <span key={i} title={l.url}>
+            {l.url}
+          </span>
+        );
+      })}
     </div>
   );
 }

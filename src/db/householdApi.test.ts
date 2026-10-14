@@ -115,14 +115,21 @@ describe("mergeIntoHousehold", () => {
     expect(getHousehold()).toMatchObject({ kind: "couple", memberCount: 2 });
   });
 
-  it("surfaces the database error message", async () => {
+  it("maps the database error message to its translation", async () => {
     rpcHandler({
       merge_into_household: {
         data: null,
-        error: { message: "Your household has another member — dismantle it first." },
+        error: { message: "Your household has another member — dismantle it before joining another." },
       },
     });
     await expect(mergeIntoHousehold("NOPE")).rejects.toThrow(/another member/);
+  });
+
+  it("hides unmapped database errors behind a generic sentence", async () => {
+    rpcHandler({
+      merge_into_household: { data: null, error: { message: "permission denied for table x" } },
+    });
+    await expect(mergeIntoHousehold("NOPE")).rejects.toThrow(/something went wrong/i);
   });
 });
 
@@ -169,18 +176,17 @@ describe("invites", () => {
     setHousehold({ id: 3, name: "Beta", kind: "couple", memberCount: 2 });
   });
 
-  it("createInvite inserts for the current household and returns the code", async () => {
-    const q = next({ data: { id: 9, code: "abc123def456" } });
+  it("createInvite calls the create_invite RPC and returns the code", async () => {
+    rpcHandler({ create_invite: { data: { id: 9, code: "abc123def456" }, error: null } });
     await expect(createInvite()).resolves.toEqual({ id: 9, code: "abc123def456" });
-    expect(from).toHaveBeenCalledWith("household_invites");
-    const insert = q.calls.find((c) => c.method === "insert");
-    expect(insert?.args[0]).toEqual({ householdId: 3 });
+    expect(rpc).toHaveBeenCalledWith("create_invite");
+    expect(from).not.toHaveBeenCalled();
   });
 
   it("createInvite fails cleanly without a household", async () => {
     setHousehold(null);
     await expect(createInvite()).rejects.toThrow(/household/i);
-    expect(from).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("listInvites returns only active invites of the household", async () => {
@@ -207,6 +213,6 @@ describe("invites", () => {
 
   it("revokeInvite surfaces failures", async () => {
     next({ data: null, error: { message: "denied" } });
-    await expect(revokeInvite(9)).rejects.toThrow("denied");
+    await expect(revokeInvite(9)).rejects.toThrow(/something went wrong/i);
   });
 });

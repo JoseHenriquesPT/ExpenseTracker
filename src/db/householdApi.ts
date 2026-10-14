@@ -90,18 +90,16 @@ export interface HouseholdInvite {
   code: string;
 }
 
-/** Create a fresh invite for the current household (server generates the code). */
+/** Create a fresh invite for the current household. The code is generated
+ *  server-side by the create_invite() SECURITY DEFINER RPC (migration 0017) —
+ *  clients can't choose or tamper with codes. */
 export async function createInvite(): Promise<HouseholdInvite> {
   const household = getHouseholdSnapshot();
   if (!household) throw new Error(i18n.t("errors.householdNotLoaded"));
-  const { data, error } = await supabase
-    .from("household_invites")
-    .insert({ householdId: household.id })
-    .select("id, code")
-    .single();
+  const { data, error } = await supabase.rpc("create_invite");
   if (error) throw new Error(toMessage(error));
   touch();
-  return data as HouseholdInvite;
+  return data as unknown as HouseholdInvite;
 }
 
 export async function revokeInvite(id: number): Promise<void> {

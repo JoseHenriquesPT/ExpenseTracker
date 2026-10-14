@@ -14,7 +14,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(33);
+select plan(34);
 
 insert into auth.users
   (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -55,8 +55,7 @@ select throws_ok(
   $q$ select public.create_household('couple') $q$,
   'P0001', null, 'alice cannot create a second household');
 select lives_ok(
-  $q$ insert into public.household_invites ("householdId")
-      select id from public.current_household() $q$,
+  $q$ select public.create_invite() $q$,
   'alice can create an invite for her household');
 select lives_ok(
   $q$ delete from public.household_invites
@@ -156,12 +155,20 @@ set local "request.jwt.claims" = '{"sub":"22222222-2222-2222-2222-222222222222",
 select lives_ok(
   $q$ select public.create_household('couple') $q$,
   'bob can create a couple household');
-select lives_ok(
+select throws_ok(
   $q$ insert into public.household_invites ("householdId", code)
       select id, 'BOBCODE' from public.current_household() $q$,
-  'bob can create an invite with an explicit code');
+  '42501', null, 'members cannot choose invite codes by hand');
+select lives_ok(
+  $q$ select public.create_invite() $q$,
+  'bob can create an invite through the RPC');
 
 reset role;
+-- Give bob's generated invite a known code so the join tests can address it.
+update public.household_invites set code = 'BOBCODE'
+where "householdId" = (select "householdId" from public.household_members
+                       where "userId" = '22222222-2222-2222-2222-222222222222')
+  and "usedAt" is null;
 
 -- ---------------------------------------------------------------------------
 -- CAROL — joins Bob; invites stay private, membership caps stand.

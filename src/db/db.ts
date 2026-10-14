@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { touch } from "./live";
-import { getHouseholdId } from "./household";
+import { getHouseholdId, getHouseholdSnapshot } from "./household";
 import { pushToast } from "../lib/toast";
 import type {
   ExpenseEntry, IncomeEntry, PersonalExpenseEntry, Investment,
@@ -220,14 +220,20 @@ export const DEFAULT_CONFIG: Omit<Config, "id"> = {
 
 /** Ensure the signed-in household's config row exists; returns it. Safe under a
  *  race: if another client inserts first, the unique (householdId, key)
- *  conflict is recovered. */
+ *  conflict is recovered. A single-person household seeds one name ("Me"),
+ *  since there is no P2 to distinguish from. */
 export async function ensureConfig(): Promise<Config> {
   const existing = await db.config.get({ key: "config" });
   if (existing) return existing;
 
+  const single = getHouseholdSnapshot()?.kind === "single";
   const { data, error } = await supabase
     .from("config")
-    .insert({ ...DEFAULT_CONFIG, [HOUSEHOLD]: getHouseholdId() } as never)
+    .insert({
+      ...DEFAULT_CONFIG,
+      p1Name: single ? "Me" : DEFAULT_CONFIG.p1Name,
+      [HOUSEHOLD]: getHouseholdId(),
+    } as never)
     .select("*")
     .single();
 

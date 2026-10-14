@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useLiveQuery } from "../db/live";
+import { useLiveQuery, useSingleMode } from "../db/live";
 import { db, type SupaTable } from "../db/db";
 import type { Entry, ExpenseEntry, IncomeEntry, Person } from "../db/types";
 import { filterByWindow, monthEnd, monthStart, SAVINGS_CATEGORY, toISO } from "../lib/finance";
@@ -21,6 +21,13 @@ const TITLES: Record<Kind, string> = {
   personalExpenses: "Individual Expenses",
 };
 
+/** Single-mode titles: one person, so no "Common" prefix. */
+const SINGLE_TITLES: Record<Kind, string> = {
+  expenses: "Expenses",
+  income: "Income",
+  personalExpenses: "Individual Expenses",
+};
+
 // Short labels for the subtab switcher (when a page groups several kinds).
 const SUBTAB_LABELS: Record<Kind, string> = {
   expenses: "Common",
@@ -36,6 +43,13 @@ const NOTES: Record<Kind, string> = {
     "Personal spending — not shared, not settled. “Saved into investments” is money moved to investments, not spending.",
 };
 
+const SINGLE_NOTES: Record<Kind, string> = {
+  expenses:
+    "What you spend. “Saved into investments” is money moved to investments, not spending.",
+  income: "Your income.",
+  personalExpenses: "",
+};
+
 type Row = Entry &
   Partial<Pick<ExpenseEntry, "paidBy" | "saved">> &
   Partial<Pick<IncomeEntry, "person">>;
@@ -43,9 +57,20 @@ type Row = Entry &
 export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   // The active subtab drives everything; defaults to the first tab (Common for
   // the merged Expenses page). A single-tab page just hides the switcher.
-  const [kind, setKind] = useState<Kind>(tabs[0]);
+  const [kindState, setKind] = useState<Kind>(tabs[0]);
   const [entryMode, setEntryMode] = useState<EntryMode>("expense");
-  const pageTitle = tabs.length > 1 ? "Expenses & Savings" : TITLES[kind];
+  const single = useSingleMode();
+  // A one-person household has no Individual ledger: that subtab disappears and
+  // anything that was on it is treated as the single Expenses ledger.
+  const visibleTabs = single
+    ? tabs.filter((t) => t !== "personalExpenses")
+    : tabs;
+  const kind: Kind = visibleTabs.includes(kindState) ? kindState : visibleTabs[0];
+  const pageTitle = visibleTabs.length > 1
+    ? "Expenses & Savings"
+    : single
+    ? SINGLE_TITLES[kind]
+    : TITLES[kind];
 
   const isExpense = kind === "expenses";
   const isIncome = kind === "income";
@@ -84,29 +109,31 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   async function add() {
     const num = parseFloat(value);
     if (!date || isNaN(num)) return;
+    // In single mode everything belongs to the one person, no picker needed.
+    const who: Person | null = single ? "P1" : person;
     if (isExpense) {
-      if (!person) return;
+      if (!who) return;
       if (isSavings) {
         await db.expenses.add({
-          date, value: num, category: SAVINGS_CATEGORY, paidBy: person, description, saved: true,
+          date, value: num, category: SAVINGS_CATEGORY, paidBy: who, description, saved: true,
         });
       } else {
         if (!category) return;
-        await db.expenses.add({ date, value: num, category, paidBy: person, description });
+        await db.expenses.add({ date, value: num, category, paidBy: who, description });
       }
     } else if (isPersonal) {
-      if (!person) return;
+      if (!who) return;
       if (isSavings) {
         await db.personalExpenses.add({
-          date, value: num, category: SAVINGS_CATEGORY, person, description, saved: true,
+          date, value: num, category: SAVINGS_CATEGORY, person: who, description, saved: true,
         });
       } else {
         if (!category) return;
-        await db.personalExpenses.add({ date, value: num, category, person, description });
+        await db.personalExpenses.add({ date, value: num, category, person: who, description });
       }
     } else {
       if (!category) return;
-      await db.income.add({ date, value: num, category, person: person ?? "P1", description });
+      await db.income.add({ date, value: num, category, person: who ?? "P1", description });
     }
     setValue("");
     setDescription("");
@@ -163,7 +190,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
         <th>Date</th>
         <th className="num">Value</th>
         <th>Category</th>
-        <th>{personColTitle}</th>
+        {!single && <th>{personColTitle}</th>}
         <th>Description</th>
         <th></th>
       </tr>
@@ -174,9 +201,9 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
     <div>
       <BackHome />
       <h2>{pageTitle}</h2>
-      {tabs.length > 1 && (
+      {visibleTabs.length > 1 && (
         <div className="segmented" style={{ marginBottom: 12 }}>
-          {tabs.map((t) => (
+          {visibleTabs.map((t) => (
             <button
               key={t}
               className={kind === t ? "seg active" : "seg"}
@@ -190,7 +217,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
           ))}
         </div>
       )}
-      <p className="subtitle">{NOTES[kind]}</p>
+      <p className="subtitle">{single ? SINGLE_NOTES[kind] : NOTES[kind]}</p>
 
       {/* ---------------- Add a new entry ---------------- */}
       <div className="panel" style={{ marginBottom: 24 }}>
@@ -240,32 +267,34 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                   </select>
                 )}
               </td>
-              <td data-label={personColTitle}>
-                {isIncome ? (
-                  <select
-                    value={person ?? "P1"}
-                    onChange={(e) => setPerson(e.target.value as Person)}
-                  >
-                    {people.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="choice-row" role="group" aria-label={personColTitle}>
-                    {people.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className={person === p.id ? "choice active" : "choice"}
-                        aria-pressed={person === p.id}
-                        onClick={() => setPerson(p.id)}
-                      >
-                        {p.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </td>
+              {!single && (
+                <td data-label={personColTitle}>
+                  {isIncome ? (
+                    <select
+                      value={person ?? "P1"}
+                      onChange={(e) => setPerson(e.target.value as Person)}
+                    >
+                      {people.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="choice-row" role="group" aria-label={personColTitle}>
+                      {people.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className={person === p.id ? "choice active" : "choice"}
+                          aria-pressed={person === p.id}
+                          onClick={() => setPerson(p.id)}
+                        >
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </td>
+              )}
               <td data-label="Description">
                 <input
                   placeholder="optional"
@@ -297,9 +326,11 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                   <td data-label="Date">{fmtDate(r.date)}</td>
                   <td className="num" data-label="Value">{fmtMoney(r.value)}</td>
                   <td data-label="Category">{r.category}</td>
-                  <td data-label={personColTitle}>
-                    <span className="pill">{personLabel(r.paidBy ?? r.person)}</span>
-                  </td>
+                  {!single && (
+                    <td data-label={personColTitle}>
+                      <span className="pill">{personLabel(r.paidBy ?? r.person)}</span>
+                    </td>
+                  )}
                   <td data-label="Description">{r.description}</td>
                   <td>
                     <button className="ghost danger" onClick={() => remove(r)} disabled={!online}>✕</button>
@@ -333,9 +364,11 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                   <td data-label="Category">
                     {r.saved ? <span className="pill savings">Savings</span> : r.category}
                   </td>
-                  <td data-label={personColTitle}>
-                    <span className="pill">{personLabel(r.paidBy ?? r.person)}</span>
-                  </td>
+                  {!single && (
+                    <td data-label={personColTitle}>
+                      <span className="pill">{personLabel(r.paidBy ?? r.person)}</span>
+                    </td>
+                  )}
                   <td data-label="Description">{r.description}</td>
                   <td>
                     <button className="ghost danger" onClick={() => remove(r)} disabled={!online}>✕</button>

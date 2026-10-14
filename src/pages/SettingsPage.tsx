@@ -135,7 +135,11 @@ export default function SettingsPage() {
     <div>
       <BackHome />
       <h2>Settings</h2>
-      <p className="subtitle">Edit people, categories and back up your data.</p>
+      <p className="subtitle">
+        {household?.kind === "single"
+          ? "Edit your name, categories and back up your data."
+          : "Edit people, categories and back up your data."}
+      </p>
 
       <div className="panel" style={{ marginBottom: 24 }}>
         <h3 style={{ marginTop: 0 }}>Account</h3>
@@ -213,25 +217,38 @@ export default function SettingsPage() {
       </div>
 
       <div className="panel" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0 }}>People</h3>
-        <div className="field-row">
+        <h3 style={{ marginTop: 0 }}>
+          {household?.kind === "single" ? "Your name" : "People"}
+        </h3>
+        {household?.kind === "single" ? (
           <div className="field">
-            <label>Person 1 (P1)</label>
+            <label>Name shown in the app</label>
             <input
               value={names?.p1 ?? ""}
               onChange={(e) => setNames((d) => ({ p1: e.target.value, p2: d?.p2 ?? "" }))}
               disabled={!online || !names}
             />
           </div>
-          <div className="field">
-            <label>Person 2 (P2)</label>
-            <input
-              value={names?.p2 ?? ""}
-              onChange={(e) => setNames((d) => ({ p1: d?.p1 ?? "", p2: e.target.value }))}
-              disabled={!online || !names}
-            />
+        ) : (
+          <div className="field-row">
+            <div className="field">
+              <label>Person 1 (P1)</label>
+              <input
+                value={names?.p1 ?? ""}
+                onChange={(e) => setNames((d) => ({ p1: e.target.value, p2: d?.p2 ?? "" }))}
+                disabled={!online || !names}
+              />
+            </div>
+            <div className="field">
+              <label>Person 2 (P2)</label>
+              <input
+                value={names?.p2 ?? ""}
+                onChange={(e) => setNames((d) => ({ p1: d?.p1 ?? "", p2: e.target.value }))}
+                disabled={!online || !names}
+              />
+            </div>
           </div>
-        </div>
+        )}
         <div className="toolbar" style={{ marginTop: 12, marginBottom: 0 }}>
           <button
             className="primary"

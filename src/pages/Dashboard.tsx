@@ -3,7 +3,7 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Legend, CartesianGrid,
 } from "recharts";
-import { useLiveQuery } from "../db/live";
+import { useLiveQuery, useSingleMode } from "../db/live";
 import { db } from "../db/db";
 import type { Scope, Person, SettlementRecord } from "../db/types";
 import {
@@ -28,9 +28,14 @@ type Who = "Both" | Person;
 export default function Dashboard() {
   const now = new Date();
   const [mode, setMode] = useState<Mode>("monthly");
-  const [who, setWho] = useState<Who>("Both");
+  const [whoState, setWho] = useState<Who>("Both");
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+
+  // Single mode has one person: no Both/P1/P2 switcher, no settlement; the
+  // "Both" view's numbers already describe their whole household.
+  const single = useSingleMode();
+  const who: Who = single ? "Both" : whoState;
 
   const online = useOnline();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
@@ -129,10 +134,13 @@ export default function Dashboard() {
   const totalsBar = [
     { name: "Income", value: overview.totalIncome },
     {
-      name: isBoth ? "Common Exp." : "Individual Exp.",
+      name: isBoth ? (single ? "Expenses" : "Common Exp.") : "Individual Exp.",
       value: isBoth ? overview.totalExpenses : overview.totalPersonal,
     },
-    { name: isBoth ? "Common Bills" : "Individual Bills", value: overview.totalBills },
+    {
+      name: isBoth ? (single ? "Bills" : "Common Bills") : "Individual Bills",
+      value: overview.totalBills,
+    },
     ...(commonShare ? [{ name: "Common Share", value: commonShare.total }] : []),
     {
       name: "Invested",
@@ -158,21 +166,23 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="toolbar">
-        <div className="segmented">
-          {([["Both", "Both"], ["P1", p1], ["P2", p2]] as [Who, string][]).map(
-            ([id, label]) => (
-              <button
-                key={id}
-                className={who === id ? "seg active" : "seg"}
-                onClick={() => setWho(id)}
-              >
-                {label}
-              </button>
-            )
-          )}
+      {!single && (
+        <div className="toolbar">
+          <div className="segmented">
+            {([["Both", "Both"], ["P1", p1], ["P2", p2]] as [Who, string][]).map(
+              ([id, label]) => (
+                <button
+                  key={id}
+                  className={who === id ? "seg active" : "seg"}
+                  onClick={() => setWho(id)}
+                >
+                  {label}
+                </button>
+              )
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {!isBoth && commonShare && (
         <p className="subtitle" style={{ marginTop: -8 }}>
@@ -190,11 +200,12 @@ export default function Dashboard() {
       <div className="cards">
         <Card label="Total Income" value={overview.totalIncome} tone="pos" />
         {isBoth ? (
-          <Card label="Common Expenses" value={overview.totalExpenses} tone="neg" />
+          <Card label={single ? "Expenses" : "Common Expenses"}
+                value={overview.totalExpenses} tone="neg" />
         ) : (
           <Card label="Individual Expenses" value={overview.totalPersonal} tone="neg" />
         )}
-        <Card label={isBoth ? "Common Bills" : "Individual Bills"}
+        <Card label={isBoth ? (single ? "Bills" : "Common Bills") : "Individual Bills"}
               value={overview.totalBills} tone="neg" />
         {commonShare && (
           <Card label="Share of Common" value={commonShare.total} tone="neg" />
@@ -203,7 +214,7 @@ export default function Dashboard() {
               tone={totalSaved >= 0 ? "pos" : "neg"} />
       </div>
 
-      {who === "Both" && (
+      {!single && who === "Both" && (
         <SettlementPanel
           s={settlement}
           p1={p1}
@@ -224,8 +235,9 @@ export default function Dashboard() {
         {!isBoth && (
           <PieCard title="Individual expenses by category" data={overview.personal} />
         )}
-        {isBoth && <PersonPie title={`${p1}'s Totals`} split={splits.p1} />}
-        {isBoth && <PersonPie title={`${p2}'s Totals`} split={splits.p2} />}
+        {single && <PersonPie title="Your Totals" split={splits.p1} />}
+        {!single && isBoth && <PersonPie title={`${p1}'s Totals`} split={splits.p1} />}
+        {!single && isBoth && <PersonPie title={`${p2}'s Totals`} split={splits.p2} />}
       </div>
 
       <div className="chart-card panel" style={{ marginTop: 16 }}>

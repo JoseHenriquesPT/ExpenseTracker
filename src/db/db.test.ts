@@ -194,4 +194,13 @@ describe("ensureConfig", () => {
     const insert = insertQ.calls.find((c) => c.method === "insert");
     expect(insert?.args[0]).toMatchObject({ key: "config", householdId: 1 });
   });
+
+  it("seeds a single-person household with a one-name config", async () => {
+    setHousehold({ id: 1, name: "My household", kind: "single", memberCount: 1 });
+    next({ data: null });
+    const insertQ = next({ data: { id: 3, key: "config", householdId: 1 } });
+    await ensureConfig();
+    const insert = insertQ.calls.find((c) => c.method === "insert");
+    expect(insert?.args[0]).toMatchObject({ p1Name: "Me", householdId: 1 });
+  });
 });

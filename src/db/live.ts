@@ -165,3 +165,8 @@ export function useHousehold(): Household | null {
     getHouseholdSnapshot,
   );
 }
+
+/** True when the household tracks one person: no P1/P2 split, no settlement. */
+export function useSingleMode(): boolean {
+  return useHousehold()?.kind === "single";
+}

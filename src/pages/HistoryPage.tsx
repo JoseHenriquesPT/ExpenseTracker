@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useLiveQuery } from "../db/live";
+import { useLiveQuery, useSingleMode } from "../db/live";
 import { db } from "../db/db";
 import type { Person, Scope } from "../db/types";
 import { filterByWindow } from "../lib/finance";
@@ -18,6 +18,12 @@ const KIND_LABELS: Record<Kind, string> = {
   bill: "Bill",
 };
 
+/** Single-mode labels: "Common" would just mean "mine". */
+const SINGLE_KIND_LABELS: Record<Kind, string> = {
+  ...KIND_LABELS,
+  common: "Expense",
+};
+
 interface Row {
   id?: number;
   date: string;
@@ -32,6 +38,7 @@ interface Row {
 /** Every expense-side entry in one list: common/individual spending, savings
  *  and bills — savings included because they're where investments now live. */
 export default function HistoryPage() {
+  const single = useSingleMode();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const expenses = useLiveQuery(() => db.expenses.toArray(), []);
   const personal = useLiveQuery(() => db.personalExpenses.toArray(), []);
@@ -108,8 +115,8 @@ export default function HistoryPage() {
       <div className="toolbar">
         <select value={kind} onChange={(e) => setKind(e.target.value as KindFilter)}>
           <option value="all">All types</option>
-          <option value="common">Common expenses</option>
-          <option value="personal">Individual expenses</option>
+          <option value="common">{single ? "Expenses" : "Common expenses"}</option>
+          {!single && <option value="personal">Individual expenses</option>}
           <option value="savings">Savings</option>
           <option value="bill">Bills</option>
         </select>
@@ -154,8 +161,8 @@ export default function HistoryPage() {
                     <th>Date</th>
                     <th>Type</th>
                     <th>Category</th>
-                    <th>Scope</th>
-                    <th>Paid by</th>
+                    {!single && <th>Scope</th>}
+                    {!single && <th>Paid by</th>}
                     <th className="num">Value</th>
                     <th>Description</th>
                   </tr>
@@ -166,16 +173,20 @@ export default function HistoryPage() {
                       <td data-label="Date">{fmtDate(r.date)}</td>
                       <td data-label="Type">
                         <span className={r.kind === "savings" ? "pill savings" : "pill"}>
-                          {KIND_LABELS[r.kind]}
+                          {(single ? SINGLE_KIND_LABELS : KIND_LABELS)[r.kind]}
                         </span>
                       </td>
                       <td data-label="Category">{r.category}</td>
-                      <td data-label="Scope">
-                        <span className="pill">{scopeName(r.scope, names)}</span>
-                      </td>
-                      <td data-label="Paid by">
-                        <span className="pill">{personName(r.paidBy, names)}</span>
-                      </td>
+                      {!single && (
+                        <>
+                          <td data-label="Scope">
+                            <span className="pill">{scopeName(r.scope, names)}</span>
+                          </td>
+                          <td data-label="Paid by">
+                            <span className="pill">{personName(r.paidBy, names)}</span>
+                          </td>
+                        </>
+                      )}
                       <td className="num" data-label="Value">{fmtMoney(r.value)}</td>
                       <td data-label="Description">{r.description}</td>
                     </tr>

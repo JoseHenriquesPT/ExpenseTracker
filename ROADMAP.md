@@ -31,7 +31,7 @@ household onboarding (create/join/invites/capacity).
 
 - [x] Onboarding: "Create a household" / "Join with invite code", replacing the No-access
       screen — first choice is "just me" (single) or "me and a partner" (couple).
-- [ ] Single-individual mode: everything centres on one person — no P1/P2 split, no shared
+- [x] Single-individual mode: everything centres on one person — no P1/P2 split, no shared
       pool, no settlement; Dashboard, ledgers, bills and config all show a single person.
 - [x] `household_invites` table + `join_household(code)` RPC; member management in Settings
       (including upgrading a single household to a couple one later).

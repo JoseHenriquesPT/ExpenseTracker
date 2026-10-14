@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useLiveQuery } from "../db/live";
+import { useLiveQuery, useSingleMode } from "../db/live";
 import { db } from "../db/db";
 import type { BillScope, Person } from "../db/types";
 import { filterByWindow, toISO } from "../lib/finance";
@@ -15,6 +15,7 @@ const SCOPES: BillScope[] = ["P1", "P2", "Common"];
 
 export default function BillsPage() {
   const online = useOnline();
+  const single = useSingleMode();
   const { busy, run } = useBusy();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const bills = useLiveQuery(() => db.bills.orderBy("date").reverse().toArray(), []);
@@ -44,9 +45,13 @@ export default function BillsPage() {
   async function addBill() {
     const num = parseFloat(value);
     if (!date || isNaN(num) || !category) return;
-    // For a personal bill the payer is implicitly that person.
-    const who: Person = scope === "Common" ? paidBy : scope;
-    await db.bills.add({ date, value: num, category, scope, paidBy: who, description });
+    // For a personal bill the payer is implicitly that person. Single mode has
+    // just one person, so every bill is theirs.
+    const who: Person = single ? "P1" : scope === "Common" ? paidBy : scope;
+    await db.bills.add({
+      date, value: num, category,
+      scope: single ? "Common" : scope, paidBy: who, description,
+    });
     setValue("");
     setDescription("");
   }
@@ -68,8 +73,8 @@ export default function BillsPage() {
         <th>Date</th>
         <th className="num">Value</th>
         <th>Category</th>
-        <th>Scope</th>
-        <th>Paid by</th>
+        {!single && <th>Scope</th>}
+        {!single && <th>Paid by</th>}
         <th>Description</th>
         <th></th>
       </tr>
@@ -81,9 +86,13 @@ export default function BillsPage() {
       <BackHome />
       <h2>Bills</h2>
       <p className="subtitle">
-        Registering a bill counts it as paid. Bills tagged <strong>Common</strong> are
-        split in the monthly settlement; {names.p1}/{names.p2} bills are personal. This is what the
-        dashboards count as “Bills”.
+        {single ? (
+          <>Registering a bill counts it as paid. This is what the Dashboard counts as “Bills”.</>
+        ) : (
+          <>Registering a bill counts it as paid. Bills tagged <strong>Common</strong> are
+          split in the monthly settlement; {names.p1}/{names.p2} bills are personal. This is what the
+          dashboards count as “Bills”.</>
+        )}
       </p>
 
       {/* ---------------- Add a bill ---------------- */}
@@ -109,21 +118,25 @@ export default function BillsPage() {
                   {billCats.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </td>
-              <td data-label="Scope">
-                <select value={scope} onChange={(e) => setScope(e.target.value as BillScope)}>
-                  {SCOPES.map((s) => <option key={s} value={s}>{scopeLabel(s)}</option>)}
-                </select>
-              </td>
-              <td data-label="Paid by">
-                {scope === "Common" ? (
-                  <select value={paidBy} onChange={(e) => setPaidBy(e.target.value as Person)}>
-                    <option value="P1">{names.p1}</option>
-                    <option value="P2">{names.p2}</option>
-                  </select>
-                ) : (
-                  <span className="pill">{scopeLabel(scope)}</span>
-                )}
-              </td>
+              {!single && (
+                <>
+                  <td data-label="Scope">
+                    <select value={scope} onChange={(e) => setScope(e.target.value as BillScope)}>
+                      {SCOPES.map((s) => <option key={s} value={s}>{scopeLabel(s)}</option>)}
+                    </select>
+                  </td>
+                  <td data-label="Paid by">
+                    {scope === "Common" ? (
+                      <select value={paidBy} onChange={(e) => setPaidBy(e.target.value as Person)}>
+                        <option value="P1">{names.p1}</option>
+                        <option value="P2">{names.p2}</option>
+                      </select>
+                    ) : (
+                      <span className="pill">{scopeLabel(scope)}</span>
+                    )}
+                  </td>
+                </>
+              )}
               <td data-label="Description">
                 <input placeholder="optional" value={description} onChange={(e) => setDescription(e.target.value)} />
               </td>
@@ -150,8 +163,12 @@ export default function BillsPage() {
                 <td data-label="Date">{fmtDate(b.date)}</td>
                 <td className="num" data-label="Value">{fmtMoney(b.value)}</td>
                 <td data-label="Category">{b.category}</td>
-                <td data-label="Scope"><span className="pill">{scopeLabel(b.scope)}</span></td>
-                <td data-label="Paid by"><span className="pill">{personLabel(b.paidBy)}</span></td>
+                {!single && (
+                  <>
+                    <td data-label="Scope"><span className="pill">{scopeLabel(b.scope)}</span></td>
+                    <td data-label="Paid by"><span className="pill">{personLabel(b.paidBy)}</span></td>
+                  </>
+                )}
                 <td data-label="Description">{b.description}</td>
                 <td>
                   <button className="ghost danger" onClick={() => deleteBill(b.id, b.category, b.value)} disabled={!online}>✕</button>

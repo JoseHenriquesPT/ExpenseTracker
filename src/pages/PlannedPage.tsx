@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLiveQuery } from "../db/live";
+import { useLiveQuery, useSingleMode } from "../db/live";
 import { db } from "../db/db";
 import type { Person, PlannedExpense, PlannedLink, Scope } from "../db/types";
 import { toISO } from "../lib/finance";
@@ -26,6 +26,7 @@ function cleanLinks(links: PlannedLink[]): PlannedLink[] {
 
 export default function PlannedPage() {
   const online = useOnline();
+  const single = useSingleMode();
   const { busy, run } = useBusy();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const plans = useLiveQuery(
@@ -68,7 +69,7 @@ export default function PlannedPage() {
       <h2>Planned Expenses</h2>
       <p className="subtitle">
         Things you plan to buy. Add links for ideas, then press <strong>Purchased</strong> when
-        you buy it — the final price goes to Common or Individual expenses automatically.
+        you buy it — the final price goes to {single ? "your expenses" : "Common or Individual expenses"} automatically.
       </p>
 
       <div className="toolbar">
@@ -149,6 +150,7 @@ function PlanCard({
   onPurchase: (plan: PlannedExpense) => void;
 }) {
   const { busy, run } = useBusy();
+  const single = useSingleMode();
   const savedTags = [...(plan.tags ?? [])].sort();
   const savedKey = JSON.stringify({
     name: plan.name, notes: plan.notes ?? "", links: plan.links, tags: savedTags,
@@ -225,10 +227,12 @@ function PlanCard({
   }
 
   if (plan.purchased) {
-    const who =
-      plan.scope === "Common" && plan.paidBy
-        ? `Common · paid by ${personName(plan.paidBy, names)}`
-        : scopeName(plan.scope ?? "Common", names);
+    // Single mode has no routing to show — the purchase is just yours.
+    const who = single
+      ? null
+      : plan.scope === "Common" && plan.paidBy
+      ? `Common · paid by ${personName(plan.paidBy, names)}`
+      : scopeName(plan.scope ?? "Common", names);
     return (
       <div className="plan purchased">
         <div className="plan-head">
@@ -236,8 +240,8 @@ function PlanCard({
           <span className="pill purchased-badge">✓ Purchased</span>
         </div>
         <div className="plan-meta">
-          <strong>{fmtMoney(plan.finalValue ?? 0)}</strong> · {who} ·{" "}
-          {fmtDate(plan.purchasedDate ?? "")}
+          <strong>{fmtMoney(plan.finalValue ?? 0)}</strong>
+          {who && <> · {who}</>} · {fmtDate(plan.purchasedDate ?? "")}
         </div>
         {(plan.tags ?? []).length > 0 && (
           <div className="plan-tags">
@@ -405,6 +409,7 @@ function PurchaseDialog({
   onClose: () => void;
 }) {
   const { busy, run } = useBusy();
+  const single = useSingleMode();
   const [value, setValue] = useState("");
   const [scope, setScope] = useState<Scope>("Common");
   const [paidBy, setPaidBy] = useState<Person>("P1");
@@ -423,7 +428,12 @@ function PurchaseDialog({
   async function confirmPurchase() {
     if (!valid) return;
     await run(async () => {
-      const input = { value: num, scope, paidBy, date: toISO(new Date()) };
+      // Single mode books the purchase to the one person's Expenses ledger.
+      const effScope: Scope = single ? "Common" : scope;
+      const effPaidBy: Person = single ? "P1" : paidBy;
+      const input = {
+        value: num, scope: effScope, paidBy: effPaidBy, date: toISO(new Date()),
+      };
       const target = purchaseEntry(plan, input);
       if (target.table === "expenses") await db.expenses.add(target.row);
       else await db.personalExpenses.add(target.row);
@@ -460,35 +470,41 @@ function PurchaseDialog({
               disabled={busy}
             />
           </div>
-          <div className="field" style={{ flex: 1 }}>
-            <label>Expense type</label>
-            <select
-              value={scope}
-              onChange={(e) => setScope(e.target.value as Scope)}
-              disabled={busy}
-            >
-              <option value="Common">Common (shared)</option>
-              <option value="P1">{names.p1} (individual)</option>
-              <option value="P2">{names.p2} (individual)</option>
-            </select>
-          </div>
-          {scope === "Common" && (
-            <div className="field">
-              <label>Paid by</label>
-              <select
-                value={paidBy}
-                onChange={(e) => setPaidBy(e.target.value as Person)}
-                disabled={busy}
-              >
-                <option value="P1">{names.p1}</option>
-                <option value="P2">{names.p2}</option>
-              </select>
-            </div>
+          {!single && (
+            <>
+              <div className="field" style={{ flex: 1 }}>
+                <label>Expense type</label>
+                <select
+                  value={scope}
+                  onChange={(e) => setScope(e.target.value as Scope)}
+                  disabled={busy}
+                >
+                  <option value="Common">Common (shared)</option>
+                  <option value="P1">{names.p1} (individual)</option>
+                  <option value="P2">{names.p2} (individual)</option>
+                </select>
+              </div>
+              {scope === "Common" && (
+                <div className="field">
+                  <label>Paid by</label>
+                  <select
+                    value={paidBy}
+                    onChange={(e) => setPaidBy(e.target.value as Person)}
+                    disabled={busy}
+                  >
+                    <option value="P1">{names.p1}</option>
+                    <option value="P2">{names.p2}</option>
+                  </select>
+                </div>
+              )}
+            </>
           )}
         </div>
 
         <p className="subtitle" style={{ marginBottom: 16 }}>
-          {scope === "Common"
+          {single
+            ? "Will be added to your Expenses."
+            : scope === "Common"
             ? "Will be added to Common Expenses and split in the monthly settlement."
             : `Will be added to ${personName(scope, names)}'s Individual Expenses.`}
         </p>

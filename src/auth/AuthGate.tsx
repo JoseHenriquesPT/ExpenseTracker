@@ -1,20 +1,25 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../db/supabase";
-import { setHouseholdId as setActiveHouseholdId } from "../db/household";
+import { fetchHousehold } from "../db/onboarding";
+import { setHousehold as setActiveHousehold, type Household } from "../db/household";
+import Onboarding from "./Onboarding";
 
 /**
  * Wraps the whole app. Renders children only for a signed-in Google account
  * whose email is on the server-side allowlist (checked via the is_allowed()
- * RPC) and that belongs to a household (checked via the current_household_id()
- * RPC). Everyone else sees a sign-in / "not authorized" screen. The real
- * enforcement is RLS in the database; this is just clean UX on top of it.
+ * RPC) and that belongs to a household (checked via the current_household()
+ * RPC). Accounts without a household get the Onboarding screen; everyone else
+ * sees a sign-in / "not authorized" screen. The real enforcement is RLS in the
+ * database; this is just clean UX on top of it.
  */
 export default function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [householdId, setHousehold] = useState<number | null>(null);
+  const [household, setHouseholdState] = useState<Household | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -29,14 +34,16 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!session) {
-      setActiveHouseholdId(null);
+      setActiveHousehold(null);
       setAllowed(null);
-      setHousehold(null);
+      setHouseholdState(null);
+      setFailed(false);
       return;
     }
     let alive = true;
     setAllowed(null);
-    setHousehold(null);
+    setHouseholdState(null);
+    setFailed(false);
     supabase.rpc("is_allowed").then(async ({ data, error }) => {
       if (!alive) return;
       if (error || !data) {
@@ -45,23 +52,35 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       }
       // Access and household resolve together, so the app only mounts once
       // the data layer has a household to scope every query to.
-      const { data: hid, error: hidError } = await supabase.rpc("current_household_id");
-      if (!alive) return;
-      const resolved = !hidError && typeof hid === "number" ? hid : null;
-      setActiveHouseholdId(resolved);
-      setHousehold(resolved);
-      setAllowed(true);
+      try {
+        const resolved = await fetchHousehold();
+        if (!alive) return;
+        setActiveHousehold(resolved);
+        setHouseholdState(resolved);
+        setAllowed(true);
+      } catch {
+        if (!alive) return;
+        setFailed(true);
+      }
     });
     return () => {
       alive = false;
     };
-  }, [session]);
+  }, [session, attempt]);
 
   if (loading) return <Centered>Loading…</Centered>;
   if (!session) return <SignIn />;
+  if (failed) return <LoadFailed onRetry={() => setAttempt((n) => n + 1)} />;
   if (allowed === null) return <Centered>Checking access…</Centered>;
   if (!allowed) return <NotAllowed email={session.user.email ?? ""} />;
-  if (householdId == null) return <NoHousehold email={session.user.email ?? ""} />;
+  if (household == null) {
+    return (
+      <Onboarding
+        email={session.user.email ?? ""}
+        onDone={() => setAttempt((n) => n + 1)}
+      />
+    );
+  }
   return <>{children}</>;
 }
 
@@ -119,17 +138,16 @@ function NotAllowed({ email }: { email: string }) {
   );
 }
 
-function NoHousehold({ email }: { email: string }) {
+function LoadFailed({ onRetry }: { onRetry: () => void }) {
   return (
     <Centered>
       <div className="panel" style={{ maxWidth: 420, textAlign: "center" }}>
-        <h1 className="brand" style={{ marginTop: 0 }}>🏠 No household yet</h1>
+        <h1 className="brand" style={{ marginTop: 0 }}>⚠ Couldn’t load your household</h1>
         <p className="subtitle">
-          <strong>{email}</strong> is signed in but isn’t part of a household.
-          Ask whoever invited you to add you to theirs.
+          Something went wrong talking to the server. Check your connection and try again.
         </p>
-        <button className="ghost" onClick={() => supabase.auth.signOut()}>
-          Sign out
+        <button className="primary" onClick={onRetry}>
+          Retry
         </button>
       </div>
     </Centered>

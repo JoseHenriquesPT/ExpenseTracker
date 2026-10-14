@@ -24,15 +24,16 @@ distinct signed-in users before opening signups.
 - [ ] Exit criteria: isolation tests pass; the current pair sees zero behavioural change.
 
 Verified locally (never production): `npx supabase db reset && npx supabase test db`
-— 46 pgTAP tests covering cross-household read/write denial and scoped imports.
+— 79 pgTAP tests covering cross-household read/write denial, scoped imports and
+household onboarding (create/join/invites/capacity).
 
 ## Phase 2 — Open signups, single-individual mode
 
-- [ ] Onboarding: "Create a household" / "Join with invite code", replacing the No-access
+- [x] Onboarding: "Create a household" / "Join with invite code", replacing the No-access
       screen — first choice is "just me" (single) or "me and a partner" (couple).
 - [ ] Single-individual mode: everything centres on one person — no P1/P2 split, no shared
       pool, no settlement; Dashboard, ledgers, bills and config all show a single person.
-- [ ] `household_invites` table + `join_household(code)` RPC; member management in Settings
+- [x] `household_invites` table + `join_household(code)` RPC; member management in Settings
       (including upgrading a single household to a couple one later).
 - [ ] Email magic-link sign-in alongside Google — Google-only isn't everyone.
 - [ ] Remove the allowlist gate.

@@ -1,7 +1,9 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
-import { onHouseholdChange } from "./household";
+import {
+  getHouseholdSnapshot, onHouseholdChange, type Household,
+} from "./household";
 import { pushToast } from "../lib/toast";
 
 // A tiny reactive layer powering every page's live data.
@@ -79,8 +81,8 @@ supabase.auth.getSession().then(({ data }) => {
 
 // AuthGate resolves the household after sign-in; a change re-targets the
 // filter, and clearing it on sign-out closes the channel.
-onHouseholdChange((id) => {
-  householdId = id;
+onHouseholdChange(() => {
+  householdId = getHouseholdSnapshot()?.id ?? null;
   syncLiveSync();
 });
 
@@ -149,4 +151,17 @@ export function useLiveQuery<T>(
   }, [v, depsKey]);
 
   return value;
+}
+
+/**
+ * The active household, reactive: re-renders when AuthGate resolves it (and
+ * after onboarding/upgrade refreshes it). Screens use it to adapt between the
+ * single-person and couple modes.
+ */
+export function useHousehold(): Household | null {
+  return useSyncExternalStore(
+    onHouseholdChange,
+    getHouseholdSnapshot,
+    getHouseholdSnapshot,
+  );
 }

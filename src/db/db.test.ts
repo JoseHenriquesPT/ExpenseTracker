@@ -7,7 +7,7 @@ vi.mock("./live", () => ({ touch: vi.fn() }));
 vi.mock("../lib/toast", () => ({ pushToast: vi.fn() }));
 
 import { db, ensureConfig } from "./db";
-import { setHouseholdId } from "./household";
+import { setHousehold } from "./household";
 
 interface Call {
   method: string;
@@ -74,7 +74,7 @@ beforeEach(() => {
   // Node ships a `navigator` without onLine, which would read as offline.
   vi.stubGlobal("navigator", { onLine: true });
   from.mockReset();
-  setHouseholdId(1);
+  setHousehold({ id: 1, name: "My household", kind: "couple", memberCount: 2 });
 });
 
 describe("SupaTable household scoping", () => {
@@ -165,7 +165,7 @@ describe("SupaTable household scoping", () => {
   });
 
   it("refuses to read or write before the household is known", async () => {
-    setHouseholdId(null);
+    setHousehold(null);
     await expect(db.expenses.toArray()).rejects.toThrow(/household/i);
     await expect(
       db.expenses.add({ date: "2026-01-01", value: 5, category: "Comida", paidBy: "P1" }),

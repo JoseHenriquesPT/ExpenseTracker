@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { useLiveQuery } from "../db/live";
+import { useHousehold, useLiveQuery } from "../db/live";
 import { db, ensureConfig } from "../db/db";
 import { supabase } from "../db/supabase";
+import {
+  createInvite, listInvites, revokeInvite, upgradeToCouple,
+} from "../db/onboarding";
 import type { Config } from "../db/types";
 import { exportBackup, importBackup, parseBackupFile } from "../lib/backup";
 import { describeBackup } from "../lib/backupSchema";
@@ -26,14 +29,40 @@ const LISTS: { key: ListKey; title: string }[] = [
 export default function SettingsPage() {
   const online = useOnline();
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
+  const household = useHousehold();
+  const invites = useLiveQuery(
+    () => listInvites(),
+    [household?.id, household?.memberCount]
+  );
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState("");
   const [email, setEmail] = useState("");
   const { busy: importing, run: runImport } = useBusy();
   const { busy: savingNames, run: runSaveNames } = useBusy();
+  const { busy: householdBusy, run: runHousehold } = useBusy();
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ""));
   }, []);
+
+  /** Run a household action with double-submit guard + error toast. */
+  function runHouseholdAction(fn: () => Promise<void>) {
+    return runHousehold(async () => {
+      try {
+        await fn();
+      } catch (e) {
+        pushToast(e instanceof Error ? e.message : String(e), "error");
+      }
+    });
+  }
+
+  async function copyInvite(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      pushToast("Invite code copied", "success");
+    } catch {
+      pushToast("Couldn't copy — select the code and copy it manually.", "error");
+    }
+  }
 
   // Person names are edited locally and committed with the Save button — typing
   // no longer fires a DB write per keystroke. Seed from config, and re-sync when
@@ -120,6 +149,67 @@ export default function SettingsPage() {
             Sign out
           </button>
         </div>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 24 }}>
+        <h3 style={{ marginTop: 0 }}>Household</h3>
+        {!household ? (
+          <p className="subtitle" style={{ margin: 0 }}>Loading…</p>
+        ) : household.kind === "single" ? (
+          <>
+            <p className="subtitle">
+              This is a one-person household. Upgrading turns on the P1/P2 split
+              and lets you invite a partner.
+            </p>
+            <button
+              className="primary"
+              disabled={!online || householdBusy}
+              onClick={() => runHouseholdAction(upgradeToCouple)}
+            >
+              {householdBusy ? "Upgrading…" : "Upgrade to a couple household"}
+            </button>
+          </>
+        ) : household.memberCount >= 2 ? (
+          <p className="subtitle" style={{ margin: 0 }}>
+            Two members — your household is full.
+          </p>
+        ) : (
+          <>
+            <p className="subtitle">
+              Invite your partner: send them the code, and they choose
+              “Join” on the welcome screen.
+            </p>
+            {invites === undefined ? (
+              <p className="subtitle" style={{ margin: 0 }}>Loading…</p>
+            ) : invites.length === 0 ? (
+              <button
+                className="primary"
+                disabled={!online || householdBusy}
+                onClick={() => runHouseholdAction(async () => { await createInvite(); })}
+              >
+                {householdBusy ? "Creating…" : "Create invite code"}
+              </button>
+            ) : (
+              <div className="tag-list">
+                {invites.map((inv) => (
+                  <span key={inv.id} className="tag">
+                    <code>{inv.code}</code>
+                    <button onClick={() => copyInvite(inv.code)} title="Copy">
+                      Copy
+                    </button>
+                    <button
+                      onClick={() => runHouseholdAction(() => revokeInvite(inv.id))}
+                      title="Revoke"
+                      disabled={!online || householdBusy}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <div className="panel" style={{ marginBottom: 24 }}>

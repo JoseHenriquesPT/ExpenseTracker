@@ -6,7 +6,7 @@ vi.mock("./supabase", () => ({ supabase: { from } }));
 vi.mock("./live", () => ({ touch: vi.fn() }));
 vi.mock("../lib/toast", () => ({ pushToast: vi.fn() }));
 
-import { db, ensureConfig } from "./db";
+import { db, DEFAULT_CONFIG, ensureConfig } from "./db";
 import { setHousehold } from "./household";
 import { type FakeQuery, queueQuery } from "./fakeSupabase";
 
@@ -120,6 +120,24 @@ describe("SupaTable household scoping", () => {
       db.expenses.add({ date: "2026-01-01", value: 5, category: "Comida", paidBy: "P1" }),
     ).rejects.toThrow(/household/i);
     expect(from).not.toHaveBeenCalled();
+  });
+});
+
+describe("DEFAULT_CONFIG", () => {
+  it("seeds new accounts with the original household's category lists", () => {
+    expect(DEFAULT_CONFIG.incomeCategories).toEqual([
+      "Emprego", "Sub. Refeição", "Side Hustle", "Pais",
+    ]);
+    expect(DEFAULT_CONFIG.expenseCategories).toEqual([
+      "Compras", "Combustível", "Restaurante", "Bebidas", "Divertimento",
+      "Roupa", "Learning", "Outro", "Transportes", "Renda",
+    ]);
+    expect(DEFAULT_CONFIG.billCategories).toEqual([
+      "Streaming", "Musica", "Ginásio", "Tarifário", "Serviços",
+    ]);
+    expect(DEFAULT_CONFIG.plannedTags).toEqual([
+      "House", "Priority", "Kitchen", "Living Room/Office", "Bedroom",
+    ]);
   });
 });
 

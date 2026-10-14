@@ -191,27 +191,28 @@ export const db = {
   config: new SupaTable<Config>(TABLE.config),
 };
 
-/** Default config, seeded from the original spreadsheet. */
+/** Default config for a brand-new account: the original household's category
+ *  lists, so every new account starts with the same setup. */
 export const DEFAULT_CONFIG: Omit<Config, "id"> = {
   key: "config",
   p1Name: "Person 1",
   p2Name: "Person 2",
-  incomeCategories: ["Emprego", "Sub. Refeição", "Side Hustle", "Venda", "Prémio"],
+  incomeCategories: ["Emprego", "Sub. Refeição", "Side Hustle", "Pais"],
   expenseCategories: [
-    "Comida",
     "Compras",
     "Combustível",
     "Restaurante",
     "Bebidas",
     "Divertimento",
     "Roupa",
-    "Calçado",
-    "Acessórios",
-    "Retoma",
+    "Learning",
+    "Outro",
+    "Transportes",
+    "Renda",
   ],
-  billCategories: ["Streaming", "Musica", "Ginásio", "Tarifário"],
+  billCategories: ["Streaming", "Musica", "Ginásio", "Tarifário", "Serviços"],
   investmentCategories: ["Trading 212"],
-  plannedTags: [],
+  plannedTags: ["House", "Priority", "Kitchen", "Living Room/Office", "Bedroom"],
   actions: ["Invested", "Withdraw"],
 };
 

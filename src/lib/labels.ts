@@ -43,6 +43,12 @@ export interface ModeText {
   expenseKind: string;
   /** Income-split pie title: "Your Totals" | "Ana's Totals". */
   totalsTitle: (name: string) => string;
+  /** Income-split pie slice for the fair share of shared spending:
+   *  "Expenses" | "Common". */
+  splitCommon: string;
+  /** Top-card label for a person's individual spending:
+   *  "Individual Expenses" | "Ana's Individual". */
+  individual: (name: string) => string;
 }
 
 export function modeText(single: boolean): ModeText {
@@ -54,6 +60,8 @@ export function modeText(single: boolean): ModeText {
         billsShort: "Bills",
         expenseKind: "Expense",
         totalsTitle: () => "Your Totals",
+        splitCommon: "Expenses",
+        individual: () => "Individual Expenses",
       }
     : {
         expenses: "Common Expenses",
@@ -62,5 +70,7 @@ export function modeText(single: boolean): ModeText {
         billsShort: "Common Bills",
         expenseKind: "Common",
         totalsTitle: (name) => `${name}'s Totals`,
+        splitCommon: "Common",
+        individual: (name) => `${name}'s Individual`,
       };
 }

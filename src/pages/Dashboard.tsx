@@ -115,6 +115,10 @@ export default function Dashboard() {
         <Card label="Total Income" value={overview.totalIncome} tone="pos" />
         <Card label={labels.expenses} value={overview.totalExpenses} tone="neg" />
         <Card label={labels.bills} value={overview.totalBills} tone="neg" />
+        <Card label={labels.individual(p1)} value={splits.p1.individual} tone="neg" />
+        {!single && (
+          <Card label={labels.individual(p2)} value={splits.p2.individual} tone="neg" />
+        )}
         <Card label="Total Saved" value={overview.totalSaved}
               tone={overview.totalSaved >= 0 ? "pos" : "neg"} />
       </div>
@@ -133,12 +137,23 @@ export default function Dashboard() {
       )}
 
       {/* The headline pies: each person's income split into their fair share of
-          the shared spending, what they invested and what they saved. */}
+          the shared spending, their own individual spending, what they
+          invested and what they saved. */}
       <div className="charts">
         <PieCard title="Spending by category" data={spendingByCategory} />
         <PieCard title="Income by category" data={overview.income} />
-        <PersonPie title={labels.totalsTitle(p1)} split={splits.p1} />
-        {!single && <PersonPie title={labels.totalsTitle(p2)} split={splits.p2} />}
+        <PersonPie
+          title={labels.totalsTitle(p1)}
+          expensesLabel={labels.splitCommon}
+          split={splits.p1}
+        />
+        {!single && (
+          <PersonPie
+            title={labels.totalsTitle(p2)}
+            expensesLabel={labels.splitCommon}
+            split={splits.p2}
+          />
+        )}
       </div>
 
       <div className="chart-card panel" style={{ marginTop: 16 }}>
@@ -340,10 +355,16 @@ function Card({ label, value, tone }: { label: string; value: number; tone?: "po
   );
 }
 
-/** One person's income split: expenses / invested / saved. */
-function PersonPie({ title, split }: { title: string; split: IncomeSplit }) {
+/** One person's income split: their fair share of shared spending, their own
+ *  individual spending, invested and saved — always shown as separate slices. */
+function PersonPie({
+  title, expensesLabel, split,
+}: {
+  title: string; expensesLabel: string; split: IncomeSplit;
+}) {
   const data: CategoryTotal[] = [
-    { category: "Expenses", value: Math.max(0, split.expenses) },
+    { category: expensesLabel, value: Math.max(0, split.expenses) },
+    { category: "Individual", value: Math.max(0, split.individual) },
     { category: "Invested", value: Math.max(0, split.invested) },
     { category: "Saved", value: Math.max(0, split.saved) },
   ];

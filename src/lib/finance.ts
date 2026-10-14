@@ -422,13 +422,16 @@ export function computeSettlement(
 export interface IncomeSplit {
   /** The person's own income for the window. */
   income: number;
-  /** Their fair share of all household spending: income % of common expenses
-   *  and bills, plus their own individual expenses and bills. */
+  /** Their fair share of the shared spending: income % of common expenses
+   *  and Common-scoped bills. Excludes anything individual. */
   expenses: number;
+  /** Their own individual spending: personal expenses plus bills scoped to
+   *  them — never split, so it stays separate from {@link expenses}. */
+  individual: number;
   /** Money moved into investments: their own savings plus their income % of
    *  the household's common savings. */
   invested: number;
-  /** income − expenses − invested; negative means they overspent. */
+  /** income − expenses − individual − invested; negative means they overspent. */
   saved: number;
 }
 
@@ -440,8 +443,9 @@ export interface IncomeSplitInputs {
 }
 
 /**
- * Split each person's income into what they consumed (fair share of all
- * spending), what they put into investments, and what's left as savings.
+ * Split each person's income into what they consumed (their fair share of the
+ * shared spending, kept separate from their own individual spending), what
+ * they put into investments, and what's left as savings.
  * Common spending uses the same income-proportional share as the settlement
  * (50/50 fallback with no income), so the two views agree.
  */
@@ -475,10 +479,16 @@ export function buildIncomeSplits(
       (r) => r.person === person && !!r.saved
     );
     const personalBills = total(inp.bills, (r) => r.scope === person);
-    const expenses =
-      (commonExpenses + commonBills) * share + personalExpenses + personalBills;
+    const expenses = (commonExpenses + commonBills) * share;
+    const individual = personalExpenses + personalBills;
     const invested = commonSavings * share + personalSavings;
-    return { income, expenses, invested, saved: income - expenses - invested };
+    return {
+      income,
+      expenses,
+      individual,
+      invested,
+      saved: income - expenses - individual - invested,
+    };
   };
 
   return { p1: splitFor("P1", shareP1), p2: splitFor("P2", shareP2) };

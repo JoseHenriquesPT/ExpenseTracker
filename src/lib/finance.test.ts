@@ -374,7 +374,7 @@ describe("buildIncomeSplits", () => {
   const start = "2026-01-01";
   const end = "2026-01-31";
 
-  it("splits each person's income into expenses, invested and saved", () => {
+  it("splits income into common share, individual spending, invested and saved", () => {
     const { p1, p2 } = buildIncomeSplits(
       {
         income: [income(start, 3000, "P1"), income(start, 1000, "P2")],
@@ -388,17 +388,42 @@ describe("buildIncomeSplits", () => {
           } as PersonalExpenseEntry,
           savedPersonal(start, 300, "P2"),
         ],
-        bills: [bill(start, 100, "Common", "P1")],
+        bills: [bill(start, 100, "Common", "P1"), bill(start, 40, "P1", "P1")],
       },
       start, end
     );
     // P1 carries 75% of common spending, so 0.75×(400 + 100) = 375 and
-    // 0.75×200 = 150 of the common investing.
-    expect(p1).toMatchObject({ income: 3000, expenses: 375, invested: 150 });
-    expect(p1.saved).toBeCloseTo(3000 - 375 - 150);
+    // 0.75×200 = 150 of the common investing; their own bill (40) is
+    // individual and never enters the common share.
+    expect(p1).toMatchObject({
+      income: 3000, expenses: 375, individual: 40, invested: 150,
+    });
+    expect(p1.saved).toBeCloseTo(3000 - 375 - 40 - 150);
     // P2's own 50 spend + 300 saved, plus 25% of the common side.
-    expect(p2).toMatchObject({ income: 1000, expenses: 175, invested: 350 });
-    expect(p2.saved).toBeCloseTo(1000 - 175 - 350);
+    expect(p2).toMatchObject({
+      income: 1000, expenses: 125, individual: 50, invested: 350,
+    });
+    expect(p2.saved).toBeCloseTo(1000 - 125 - 50 - 350);
+  });
+
+  it("keeps individual spending separate from the common share", () => {
+    const { p1 } = buildIncomeSplits(
+      {
+        income: [income(start, 1000, "P1")],
+        expenses: [expense(start, 100, "P1")],
+        personalExpenses: [
+          {
+            date: start, value: 30, category: "Comida", person: "P1",
+          } as PersonalExpenseEntry,
+        ],
+        bills: [],
+      },
+      start, end
+    );
+    // 100% income share: the common side is 100, the person's own 30 stays
+    // in its own slice instead of being added to it.
+    expect(p1).toMatchObject({ income: 1000, expenses: 100, individual: 30 });
+    expect(p1.saved).toBeCloseTo(1000 - 100 - 30);
   });
 
   it("falls back to a 50/50 share with no income, and reports a negative saved", () => {
@@ -406,7 +431,11 @@ describe("buildIncomeSplits", () => {
       { income: [], expenses: [expense(start, 100, "P1")], personalExpenses: [], bills: [] },
       start, end
     );
-    expect(p1).toMatchObject({ income: 0, expenses: 50, invested: 0, saved: -50 });
-    expect(p2).toMatchObject({ income: 0, expenses: 50, invested: 0, saved: -50 });
+    expect(p1).toMatchObject({
+      income: 0, expenses: 50, individual: 0, invested: 0, saved: -50,
+    });
+    expect(p2).toMatchObject({
+      income: 0, expenses: 50, individual: 0, invested: 0, saved: -50,
+    });
   });
 });

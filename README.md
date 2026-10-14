@@ -1,9 +1,10 @@
 # Expense Tracker
 
-A personal, two-person rebuild of `Template.xlsx`. Data is stored in **Supabase
-Postgres**, gated by **Google sign-in** and a server-side email allowlist, so the
-same data is reachable from phone and desktop while staying private to the two of
-you. (Earlier versions were local-first/IndexedDB — that has been replaced.)
+A personal expense tracker built from `Template.xlsx`. Data is stored in
+**Supabase Postgres**, gated by sign-in (Google or an email magic link) and
+row-level security, so each household's data is reachable from phone and desktop
+and stays private to that household. (Earlier versions were local-first/IndexedDB
+— that has been replaced.)
 
 Built with React + TypeScript + Vite (installable PWA) on a Supabase Postgres
 backend. For the full rundown of every technology, why it's here, and where it
@@ -18,8 +19,8 @@ npm run dev                  # http://localhost:5173
 ```
 
 First-time backend setup: run the files in `supabase/migrations/` in numeric
-order (`0001` first) in the Supabase SQL editor, add the allowed emails, and
-enable the Google auth provider. See the inline notes in `0001_init.sql`.
+order (`0001` first) in the Supabase SQL editor, and enable the Google and Email
+auth providers. See the inline notes in `0001_init.sql`.
 
 ### Applying migrations to the hosted database
 
@@ -65,6 +66,9 @@ in backups, but new money moved into investments is registered as **Saved into
 investments** under Expenses & Savings.
 
 ## Two people (P1 / P2)
+
+A household can be a single person ("Just me" at onboarding — no P1/P2 split, no
+settlement) or a couple. The rest of this section describes the couple model.
 
 The tracker distinguishes two people (rename them in **Settings → People**):
 

@@ -7,9 +7,9 @@
 --
 -- Run with:  npx supabase test db   (against the local stack only)
 --
--- Fixtures: household #1 exists from migration 0008 (empty). Five allowed
--- emails; alice and bob onboard themselves through the RPCs (not fixtures), so
--- the test covers the real signup path. Carol joins Bob; Dave joins Alice.
+-- Fixtures: household #1 exists from migration 0008 (empty). Alice and bob
+-- onboard themselves through the RPCs (not fixtures), so the test covers the
+-- real signup path. Carol joins Bob; Dave joins Alice.
 -- ===========================================================================
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -35,10 +35,6 @@ values
   ('55555555-5555-5555-5555-555555555555', '00000000-0000-0000-0000-000000000000',
    'authenticated', 'authenticated', 'frank@test.local', 'x', now(), now(), now(),
    '{"provider":"email","providers":["email"]}', '{}');
-
-insert into public.allowed_emails (email) values
-  ('alice@test.local'), ('bob@test.local'), ('carol@test.local'),
-  ('dave@test.local'), ('frank@test.local');
 
 -- ---------------------------------------------------------------------------
 -- ALICE — creates a single household through the RPC, manages an invite.

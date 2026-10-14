@@ -29,9 +29,6 @@ values
    'authenticated', 'authenticated', 'dave@test.local', 'x', now(), now(), now(),
    '{"provider":"email","providers":["email"]}', '{}');
 
-insert into public.allowed_emails (email) values
-  ('alice@test.local'), ('carol@test.local'), ('dave@test.local');
-
 insert into public.households (id, name, kind) overriding system value values
   (2, 'Beta', 'single');
 
@@ -48,7 +45,7 @@ insert into public.config ("householdId", key, "p1Name") values
   (2, 'config', 'Carol');
 
 -- ---------------------------------------------------------------------------
--- DAVE — allowed, but member of no household: import must refuse.
+-- DAVE — member of no household: import must refuse.
 -- ---------------------------------------------------------------------------
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub":"44444444-4444-4444-4444-444444444444","email":"dave@test.local"}';

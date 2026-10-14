@@ -35,13 +35,15 @@ household onboarding (create/join/invites/capacity).
       pool, no settlement; Dashboard, ledgers, bills and config all show a single person.
 - [x] `household_invites` table + `join_household(code)` RPC; member management in Settings
       (including upgrading a single household to a couple one later).
-- [ ] Email magic-link sign-in alongside Google — Google-only isn't everyone.
-- [ ] Remove the allowlist gate.
+- [x] Email magic-link sign-in alongside Google — Google-only isn't everyone.
+- [x] Remove the allowlist gate.
 - [ ] Exit criteria: a stranger can sign up alone or as a pair, and each household sees
       only its own data.
 
 ## Phase 3 — Polish & operations
 
+- [ ] Drop the deprecated `is_allowed()` stub once open-signup clients are deployed
+      everywhere (kept in 0014 only so pre-rollout clients keep working).
 - [ ] Generic default categories and currency/locale (defaults are currently Portuguese).
 - [ ] Delete account/household (GDPR) + privacy and terms pages.
 - [ ] Supabase tier limits and basic abuse caps.

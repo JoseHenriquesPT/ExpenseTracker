@@ -8,10 +8,10 @@
 -- (against the local stack; never touches production)
 --
 -- Fixtures: the migration already created household #1 (the existing dataset's
--- home), so H1 = 1. We add household #2. Four allowed emails, five memberships:
+-- home), so H1 = 1. We add household #2. Five users, four memberships:
 --   alice (H1, by userId), bob (H1), carol (H2, by userId),
 --   frank (H1, by email only — the partner-who-hasn't-signed-in case),
---   dave (allowed, but member of no household).
+--   dave (no household).
 -- ===========================================================================
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -40,10 +40,6 @@ values
   ('55555555-5555-5555-5555-555555555555', '00000000-0000-0000-0000-000000000000',
    'authenticated', 'authenticated', 'frank@test.local', 'x', now(), now(), now(),
    '{"provider":"email","providers":["email"]}', '{}');
-
-insert into public.allowed_emails (email) values
-  ('alice@test.local'), ('bob@test.local'), ('carol@test.local'),
-  ('dave@test.local'), ('frank@test.local');
 
 insert into public.households (id, name, kind) overriding system value values
   (2, 'Beta', 'single');

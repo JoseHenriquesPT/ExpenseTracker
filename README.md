@@ -1,121 +1,79 @@
 # Expense Tracker
 
-A personal expense tracker built from `Template.xlsx`. Data is stored in
-**Supabase Postgres**, gated by sign-in (Google or an email magic link) and
-row-level security, so each household's data is reachable from phone and desktop
-and stays private to that household. (Earlier versions were local-first/IndexedDB
-— that has been replaced.)
+A self-hostable household expense tracker built with React, TypeScript, Vite and
+Supabase Postgres. Each household's data is isolated with Postgres row-level
+security, and the app installs as a PWA on phones and desktops.
 
-Built with React + TypeScript + Vite (installable PWA) on a Supabase Postgres
-backend. For the full rundown of every technology, why it's here, and where it
-lives in the code, see **[TECH_STACK.md](TECH_STACK.md)**.
+The project is MIT licensed and intended to be forked, self-hosted and extended.
+No hosted instance or shared backend is provided.
 
-## Run it
+## Features
+
+- Single-person or two-person households
+- Common expenses, individual expenses, income, bills, savings and investments
+- Income-proportional or custom settlement split
+- Monthly and annual overview with category charts
+- Planned expenses with notes, links and tags
+- English, Portuguese (Portugal) and Polish UI
+- Google OAuth and email magic-link sign-in
+- JSON export/import with transactional restore
+- Installable PWA with offline asset caching
+
+## Local development
+
+Requirements: Node.js 20+ and npm.
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in your Supabase URL + anon key
-npm run dev                  # http://localhost:5173
+cp .env.example .env.local
+npm run dev
 ```
 
-First-time backend setup: run the files in `supabase/migrations/` in numeric
-order (`0001` first) in the Supabase SQL editor, and enable the Google and Email
-auth providers. See the inline notes in `0001_init.sql`.
-
-### Applying migrations to the hosted database
-
-Migrations are plain SQL files applied in numeric order. To apply one directly
-instead of pasting it into the SQL editor:
-
-1. Put your production connection string (Dashboard → Connect → Session pooler
-   → URI) in `supabase/.env.prod.local` as `PROD_DB_URL=...`. The file is
-   gitignored.
-2. Apply a file:
-
-```powershell
-powershell -File scripts/apply-migration.ps1 supabase/migrations/0012_name.sql
-```
-
-The script runs the file in a single transaction (stops on the first error, so
-it either fully applies or changes nothing), asks for confirmation showing the
-target host, and uses psql via Docker — no local psql install needed. Add
-`-Force` to skip the prompt.
-
-To run the tests and the optimized build locally:
+Fill `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in `.env.local`. See
+[the hosting guide](docs/HOSTING.md) for creating the Supabase project, applying
+migrations and configuring auth providers.
 
 ```bash
-npm test
-npm run build
-npm run preview
+npm test          # unit tests
+npm run build     # type-check and production build
+npm run preview   # serve the production build locally
 ```
 
-## What's where
+## Self-hosting
 
-| Spreadsheet sheet            | App equivalent                                   |
-|------------------------------|--------------------------------------------------|
-| Home hub                     | Every section as a card (`src/pages/HomePage.tsx`) |
-| Common / Individual Expenses / Income | Expenses & Savings + Income ledgers (`src/pages/LedgerPage.tsx`) |
-| Bills (paid)                 | Bills page (`src/pages/BillsPage.tsx`)           |
-| Full entry record            | History page (`src/pages/HistoryPage.tsx`)       |
-| Montly / Annual Overview     | Dashboard (`src/pages/Dashboard.tsx`)            |
-| Data Config                  | Settings → people + category editors             |
-| Settings (date engine)       | Dashboard month/year selectors                   |
+The complete walkthrough is in **[docs/HOSTING.md](docs/HOSTING.md)**. It covers:
 
-`/investments` is archived (not linked from Home) — old rows stay reachable and
-in backups, but new money moved into investments is registered as **Saved into
-investments** under Expenses & Savings.
+- creating and configuring a Supabase project
+- applying migrations in numeric order
+- Google OAuth and email magic-link/SMTP setup
+- environment variables and build settings
+- deploying the static build to Vercel or another static host
+- post-deploy verification and operational notes
 
-## Two people (P1 / P2)
+Keep the Supabase `service_role` key out of the browser and out of this
+repository. The `anon` key is public by design; row-level security is the real
+access control.
 
-A household can be a single person ("Just me" at onboarding — no P1/P2 split, no
-settlement) or a couple. The rest of this section describes the couple model.
+## Project structure
 
-The tracker distinguishes two people (rename them in **Settings → People**):
+| Path | Purpose |
+|------|---------|
+| `src/pages/` | Application screens |
+| `src/db/` | Supabase client, data layer and household scoping |
+| `src/lib/` | Finance logic, formatting and backup validation |
+| `src/i18n/` | UI translations |
+| `supabase/migrations/` | Database schema, RLS policies and RPCs |
+| `supabase/tests/` | pgTAP isolation and lifecycle tests |
+| `docs/` | Hosting and architecture documentation |
 
-- **Income** is attributed to a person — this fixes their fair-share %.
-- **Common Expenses** are shared, but each records *who paid* (out of pocket).
-- **Bills** are tagged **P1**, **P2**, or **Common**, and each records *who paid*.
-  Registering a bill counts it as paid. Common bills join the shared pool; P1/P2
-  bills are that person's own responsibility.
-- **Individual Expenses** are personal spending attributed to a person — never
-  shared, so they don't enter the settlement.
-- **Saved into investments** is an expense flagged as savings: it shows under the
-  Savings category, counts as invested in the Dashboard income pies, and is
-  deliberately **not** part of the settlement pool.
+For the full stack and architecture notes, see [TECH_STACK.md](TECH_STACK.md).
+For planned work, see [ROADMAP.md](ROADMAP.md).
 
-### Settlement (`computeSettlement` in `src/lib/finance.ts`)
+## Security
 
-At the end of a period the Dashboard shows a single settling transfer:
+Access control is enforced in Postgres, not in the frontend. Please read
+[SECURITY.md](SECURITY.md) before reporting a vulnerability.
 
-```
-share%      = person_income / total_income          (50/50 if no income)
-pool        = common expenses + Common-tagged bills   (savings excluded)
-fair_share  = share% × pool
-balance     = what they paid out of pocket − fair_share
-```
+## License
 
-Whoever overpaid is owed their positive balance; the other transfers exactly that
-amount. With two people the balances mirror (sum to zero), so one transfer settles it.
-The Dashboard's **Settle** button records that transfer for the period (stored in
-`settlements`), which clears the balance until you undo it.
-
-## The math (ported from the Excel formulas)
-
-`src/lib/finance.ts` holds the real logic:
-
-- **`buildOverview(...)`** — windowed `SUM ... GROUP BY category` for each stream,
-  with saved-into-investments rows split out as Savings, and Saved = Income −
-  (Common Expenses + Individual Expenses + Bills + Savings). Port of the Overview
-  `SUMIFS` grids.
-- **`computeSettlement(...)`** — the income-proportional fair-share split above,
-  net of any recorded `settlements` for the period.
-- **`buildIncomeSplits(...)`** — the two Dashboard pies: each person's income
-  split into their fair share of all spending, what they invested (saved into
-  investments) and what's left as savings.
-
-## Backup
-
-Settings → Export/Import JSON. Export dumps every table to a JSON file. Import
-validates the file first, asks for confirmation, then **replaces** all rows in a
-single database transaction (migration `0005`), so a bad or interrupted import
-can't leave half the data behind.
+MIT. See [LICENSE](LICENSE).

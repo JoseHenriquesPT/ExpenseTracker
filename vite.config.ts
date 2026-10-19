@@ -13,7 +13,7 @@ export default defineConfig({
       manifest: {
         name: "Expense Tracker",
         short_name: "Expenses",
-        description: "Private household expense tracker",
+        description: "Self-hostable household expense tracker",
         theme_color: "#0f1220",
         background_color: "#0f1220",
         display: "standalone",

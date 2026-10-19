@@ -1,58 +1,35 @@
 # Roadmap
 
-**Status:** multi-tenant and open for signups — any account can onboard its own
-household ("just me" or "me and a partner") and every household's rows are isolated
-by Postgres row-level security. Sign-in with Google or an email magic link.
-**Started as:** a private two-person tracker — Google sign-in + email allowlist,
-single shared dataset. The allowlist is gone (`0014`).
-**Goal:** ✅ reached — any household can sign up and use the app, with each
-household's data fully isolated.
+This roadmap tracks product and maintenance work. It is not a release schedule,
+and items may move as contributors pick them up.
 
-What remains is Phase 3 polish; the multi-tenant model is described in
-[TECH_STACK.md](TECH_STACK.md).
+## Available now
 
-## Phase 1 — Multi-tenant foundation (stay private while building)
+- [x] Household tenancy: single-person and two-person households
+- [x] Postgres row-level security isolating every household
+- [x] Google OAuth and email magic-link sign-in
+- [x] Household onboarding with invite codes and owner controls
+- [x] Common and individual expenses, income, bills and savings
+- [x] Income-proportional and custom settlement splits
+- [x] Monthly and annual overview with charts
+- [x] Planned expenses with notes, links and tags
+- [x] JSON export/import with transactional restore
+- [x] English, Portuguese (Portugal) and Polish UI
+- [x] Installable PWA with offline asset caching
+- [x] pgTAP tests for isolation and household lifecycle
 
-Tests first: the acceptance gate is an isolation test suite proving two households can
-never read or write each other's rows. Run it against a real Supabase project with two
-distinct signed-in users before opening signups.
+## Next
 
-- [x] `0008_households.sql`: add `households` (with `kind`: single | couple) and
-      `household_members`; add `householdId` to every domain table; replace the global
-      `config.key` unique with `unique(householdId, key)`.
-- [x] Backfill existing data into household #1 — the current two users keep everything.
-- [x] `is_member(householdId)` security-definer function; rewrite all RLS policies
-      (`0001`, `0002`, `0003`, `0006`) from `is_allowed()` to membership. Keep the
-      allowlist as the outer beta gate for now.
-- [x] Client scoping: household-aware `SupaTable` (reads filtered, writes injected),
-      per-household `ensureConfig()`, realtime filter by `householdId`
-      (client unit tests in `src/db/db.test.ts` / `household.test.ts`).
-- [x] Scope `import_backup()` to the caller's household (`0009`) — previously it
-      deleted every tenant's rows.
-- [ ] Exit criteria: isolation tests pass; the current pair sees zero behavioural change.
+- [ ] In-app locale and currency selection (currently build-time)
+- [ ] Account and household deletion, with privacy and terms pages
+- [ ] Abuse controls and documented hosting limits
+- [ ] Accessibility review and UI polish
+- [ ] Contributor guide and issue templates
 
-Verified locally (never production): `npx supabase db reset && npx supabase test db`
-— 79 pgTAP tests covering cross-household read/write denial, scoped imports and
-household onboarding (create/join/invites/capacity).
+## Later
 
-## Phase 2 — Open signups, single-individual mode
-
-- [x] Onboarding: "Create a household" / "Join with invite code", replacing the No-access
-      screen — first choice is "just me" (single) or "me and a partner" (couple).
-- [x] Single-individual mode: everything centres on one person — no P1/P2 split, no shared
-      pool, no settlement; Dashboard, ledgers, bills and config all show a single person.
-- [x] `household_invites` table + `join_household(code)` RPC; member management in Settings
-      (including upgrading a single household to a couple one later).
-- [x] Email magic-link sign-in alongside Google — Google-only isn't everyone.
-- [x] Remove the allowlist gate.
-- [ ] Exit criteria: a stranger can sign up alone or as a pair, and each household sees
-      only its own data.
-
-## Phase 3 — Polish & operations
-
-- [x] Drop the deprecated `is_allowed()` stub (done in `0017`; `0014` had kept it
-      only so pre-rollout clients kept working).
-- [ ] Generic default categories and currency/locale (defaults are currently Portuguese).
-- [ ] Delete account/household (GDPR) + privacy and terms pages.
-- [ ] Supabase tier limits and basic abuse caps.
-- [x] Update README / TECH_STACK docs for the multi-tenant model.
+- [ ] Additional auth providers
+- [ ] More granular household roles
+- [ ] Recurring-expense automation
+- [ ] Importers for common bank CSV formats
+- [ ] End-to-end tests against a local Supabase stack

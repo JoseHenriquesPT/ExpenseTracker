@@ -192,27 +192,24 @@ export const db = {
   config: new SupaTable<Config>(TABLE.config),
 };
 
-/** Default config for a brand-new account: the original household's category
- *  lists, so every new account starts with the same setup. */
+/** Default config for a brand-new account. */
 export const DEFAULT_CONFIG: Omit<Config, "id"> = {
   key: "config",
   p1Name: "Person 1",
   p2Name: "Person 2",
-  incomeCategories: ["Emprego", "Sub. Refeição", "Side Hustle", "Pais"],
+  incomeCategories: ["Salary", "Freelance", "Investments", "Other"],
   expenseCategories: [
-    "Compras",
-    "Combustível",
-    "Restaurante",
-    "Bebidas",
-    "Divertimento",
-    "Roupa",
-    "Learning",
-    "Outro",
-    "Transportes",
-    "Renda",
+    "Groceries",
+    "Transport",
+    "Dining",
+    "Bills",
+    "Shopping",
+    "Health",
+    "Entertainment",
+    "Other",
   ],
-  billCategories: ["Streaming", "Musica", "Ginásio", "Tarifário", "Serviços"],
-  investmentCategories: ["Trading 212"],
+  billCategories: ["Streaming", "Music", "Gym", "Phone", "Utilities"],
+  investmentCategories: ["Brokerage"],
   plannedTags: ["House", "Priority", "Kitchen", "Living Room/Office", "Bedroom"],
   actions: ["Invested", "Withdraw"],
   settlementMethod: "proportional",

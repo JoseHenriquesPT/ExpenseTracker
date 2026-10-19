@@ -1,4 +1,4 @@
-// Domain types — mirror the original Template.xlsx sheets, extended for two people.
+// Domain types — shared by the UI, the data layer and the SQL schema.
 // Dates are stored as ISO "YYYY-MM-DD" strings so they sort lexicographically
 // and compare cleanly against month/year windows.
 
@@ -129,7 +129,7 @@ export interface Config {
   /** Areas a planned expense can be tagged with, managed in Settings. */
   plannedTags: string[];
   actions: InvestmentAction[];
-  /** "proportional" = income-based fair share (the original model);
+  /** "proportional" = income-based fair share;
    *  "custom" = the saved {@link customShareP1} percentage;
    *  "none" = no settlement at all. */
   settlementMethod: SettlementMethod;

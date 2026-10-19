@@ -1,12 +1,12 @@
 # Tech Stack
 
 This document explains every technology in the Expense Tracker, **why** it's here,
-and **where** it lives in the code. For setup and feature docs, see the
-[README](README.md).
+and **where** it lives in the code. For setup and hosting, see the
+[README](README.md) and [hosting guide](docs/HOSTING.md).
 
-The app is a small, private, two-person expense tracker — a rebuild of
-`Template.xlsx`. The whole stack is chosen to keep it: installable on a phone,
-reachable from any device, private to two people, and cheap/simple to host.
+The app is a self-hostable household expense tracker. The stack is chosen to keep
+it installable on a phone, reachable from any device, isolated per household, and
+simple to host.
 
 ---
 
@@ -25,7 +25,7 @@ reachable from any device, private to two people, and cheap/simple to host.
 | Security | **Postgres Row-Level Security** + household membership | Real enforcement at the database, not the client |
 | Realtime | **Supabase Realtime** | The rest of the household sees edits live |
 | Icons | Committed PNG set | Generated once; no build step needed |
-| Hosting | **Vercel** | Static-site hosting + CI deploys |
+| Hosting | **Any static host** (e.g. Vercel) | Plain static bundle; no server to run |
 
 ---
 
@@ -97,13 +97,12 @@ because every request must still pass RLS as a valid signed-in user. The
 `bulkAdd`). It also seeds the singleton `config` row (`ensureConfig`).
 
 > **History:** earlier versions were local-first using **Dexie/IndexedDB**; those
-> packages have been removed and the data path goes through Supabase. See the
-> [README](README.md) for the migration note.
+> packages have been removed and the data path goes through Supabase.
 
 ### Schema & migrations
 The `supabase/migrations/*.sql` files define the domain tables plus the
-household tenancy model and the security model, and are run in order by hand in
-the Supabase SQL editor (see [README](README.md) → "First-time backend setup").
+household tenancy model and the security model, and are applied in numeric order
+with the Supabase CLI or SQL editor (see [docs/HOSTING.md](docs/HOSTING.md)).
 Dates are stored as ISO
 `YYYY-MM-DD` **text** so they sort lexicographically — which `finance.ts` relies
 on for its window queries. `0005` adds `import_backup()`, which restores a
@@ -151,8 +150,7 @@ migration SQL.
 
 ## Domain logic
 
-[src/lib/finance.ts](src/lib/finance.ts) holds the only real business logic,
-ported from the original Excel formulas:
+[src/lib/finance.ts](src/lib/finance.ts) holds the core business logic:
 - **`buildOverview`** — windowed sum-by-category for each stream (income, common
   expenses, individual expenses, bills, net investments) plus total saved.
 - **`computeSettlement`** — income-proportional fair-share split that resolves
@@ -174,11 +172,12 @@ before anything is written, and import runs through the transactional
   under `public/`; they were generated once and aren't rebuilt by the app.
 - **Vitest** runs the pure-logic tests (`npm test`): finance math and backup
   validation.
-- **Vercel** hosts the static build and runs deploys (`.vercel/project.json`).
-  Because routing is hash-based, no server-side rewrites are needed; the
-  production output is a plain static bundle from `npm run build`.
+- **Static hosting** works with Vercel or any other static host. Because routing
+  is hash-based, no server-side rewrites are needed; the production output is a
+  plain static bundle from `npm run build`.
 - **Environment variables** are Vite-style `VITE_*` vars, kept in `.env.local`
-  (git-ignored) and mirrored as Vercel project env vars for deploys.
+  (git-ignored) and set in the build environment of your host. `VITE_CURRENCY` is
+  optional and defaults to `EUR`.
 
 ---
 

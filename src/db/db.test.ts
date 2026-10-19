@@ -124,17 +124,18 @@ describe("SupaTable household scoping", () => {
 });
 
 describe("DEFAULT_CONFIG", () => {
-  it("seeds new accounts with the original household's category lists", () => {
+  it("seeds new accounts with generic category lists", () => {
     expect(DEFAULT_CONFIG.incomeCategories).toEqual([
-      "Emprego", "Sub. Refeição", "Side Hustle", "Pais",
+      "Salary", "Freelance", "Investments", "Other",
     ]);
     expect(DEFAULT_CONFIG.expenseCategories).toEqual([
-      "Compras", "Combustível", "Restaurante", "Bebidas", "Divertimento",
-      "Roupa", "Learning", "Outro", "Transportes", "Renda",
+      "Groceries", "Transport", "Dining", "Bills",
+      "Shopping", "Health", "Entertainment", "Other",
     ]);
     expect(DEFAULT_CONFIG.billCategories).toEqual([
-      "Streaming", "Musica", "Ginásio", "Tarifário", "Serviços",
+      "Streaming", "Music", "Gym", "Phone", "Utilities",
     ]);
+    expect(DEFAULT_CONFIG.investmentCategories).toEqual(["Brokerage"]);
     expect(DEFAULT_CONFIG.plannedTags).toEqual([
       "House", "Priority", "Kitchen", "Living Room/Office", "Bedroom",
     ]);

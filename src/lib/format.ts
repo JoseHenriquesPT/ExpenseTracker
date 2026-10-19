@@ -1,9 +1,19 @@
 import { uiLocale } from "../i18n";
 
-// Display helpers. Currency is EUR to match the original tracker's context;
-// change `CURRENCY` here if you use another. The number locale follows the
-// selected language (en-GB / pt-PT).
-const CURRENCY = "EUR";
+// Display helpers. Set VITE_CURRENCY to an ISO 4217 code to change the display
+// currency; the fallback is EUR. The number locale follows the selected language.
+function currencyCode(): string {
+  const configured = (import.meta.env.VITE_CURRENCY as string | undefined)?.trim().toUpperCase();
+  if (!configured) return "EUR";
+  try {
+    new Intl.NumberFormat("en", { style: "currency", currency: configured });
+    return configured;
+  } catch {
+    return "EUR";
+  }
+}
+
+const CURRENCY = currencyCode();
 
 const money = new Map<string, Intl.NumberFormat>();
 

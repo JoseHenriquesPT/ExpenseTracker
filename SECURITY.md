@@ -12,15 +12,16 @@ up with it. Older commits are not patched.
 
 Please do **not** open a public issue for a security vulnerability.
 
-Use [GitHub's private vulnerability reporting](https://github.com/JoseHenriquesPT/ExpenseTracker/security/advisories/new)
-(Security → Report a vulnerability). Include:
+Use **Security → Report a vulnerability** on this repository so the report stays
+private. Include:
 
 - what the issue is and what its impact would be,
 - steps to reproduce or a proof of concept,
 - anything that narrows it down — the table, migration, or RPC involved.
 
-You should get an acknowledgement within a few days. Once a fix ships, the
-advisory will credit you unless you prefer not to be named.
+Do not include live instance URLs, credentials or real household data in a
+public issue. Maintainers will acknowledge reports as soon as possible. Once a
+fix ships, the advisory will credit you unless you prefer not to be named.
 
 ## What counts as a vulnerability here
 
@@ -35,6 +36,6 @@ Two things that are **not** vulnerabilities on their own:
   be public and can do nothing on its own — every request still has to pass
   RLS as a signed-in user. The `service_role` key, by contrast, must never
   ship in the client; report that immediately.
-- Anyone being able to sign up and create their own household. Open signups
-  are the intended model (see `supabase/migrations/0014_drop_allowlist.sql`),
-  with each household fully isolated from the others.
+- Anyone being able to sign up and create their own household when sign-ups are
+  enabled. Each household is fully isolated from the others. Self-hosters who
+  want a private instance can disable sign-ups in Supabase Auth.

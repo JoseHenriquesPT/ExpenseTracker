@@ -471,7 +471,7 @@ function CategoryEditor({
   );
 }
 
-/** How the shared pool is divided: income-proportional (the original model) or
+/** How the shared pool is divided: income-proportional or
  *  a custom percentage for P1, controlled by the slider. Hidden in single mode
  *  by the caller — there is no shared pool to divide. */
 function SettlementMethodsPanel({ config, online }: { config: Config; online: boolean }) {

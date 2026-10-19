@@ -31,6 +31,8 @@ function placeholders(value: string): string[] {
 
 afterEach(async () => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.resetModules();
   await i18n.changeLanguage("en");
 });
 
@@ -224,5 +226,25 @@ describe("money formatting follows the language", () => {
     expect(portuguese).toMatch(/234,50/);
     expect(polish).toMatch(/234,50/);
     expect(polish).not.toBe(english);
+  });
+
+  it("uses VITE_CURRENCY when it is set", async () => {
+    vi.stubEnv("VITE_CURRENCY", "USD");
+    vi.resetModules();
+    const { fmtMoney: configuredMoney } = await import("../lib/format");
+    await setLanguage("en");
+    expect(configuredMoney(10)).toMatch(/\$10\.00/);
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("falls back to EUR for an invalid currency code", async () => {
+    vi.stubEnv("VITE_CURRENCY", "not-a-currency");
+    vi.resetModules();
+    const { fmtMoney: configuredMoney } = await import("../lib/format");
+    await setLanguage("en");
+    expect(configuredMoney(10)).toMatch(/€10\.00/);
+    vi.unstubAllEnvs();
+    vi.resetModules();
   });
 });

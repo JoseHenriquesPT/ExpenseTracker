@@ -141,6 +141,12 @@ The production output is in `dist/`. Upload that directory to any static host.
 - `vercel.json` adds security headers (CSP, frame denial, referrer policy and
   permissions policy). Other hosts need equivalent headers configured at the
   edge or in the host settings.
+- For a private instance, set **Deployment Protection** to **All Deployments**
+  and keep the Git integration disconnected after setup. The
+  "All Deployments Except Custom Domains" option leaves custom aliases such as
+  `<project>-<words>-<n>.vercel.app` publicly reachable, and a connected Git
+  integration makes Vercel post preview URLs and project/team IDs in comments
+  on public pull requests. Remove unused aliases.
 
 ### Other static hosts
 

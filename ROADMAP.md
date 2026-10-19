@@ -1,7 +1,15 @@
 # Roadmap
 
-**Status:** private two-person tracker — Google sign-in + email allowlist, single shared dataset.
-**Goal:** any household can sign up and use the app, with each household's data fully isolated.
+**Status:** multi-tenant and open for signups — any account can onboard its own
+household ("just me" or "me and a partner") and every household's rows are isolated
+by Postgres row-level security. Sign-in with Google or an email magic link.
+**Started as:** a private two-person tracker — Google sign-in + email allowlist,
+single shared dataset. The allowlist is gone (`0014`).
+**Goal:** ✅ reached — any household can sign up and use the app, with each
+household's data fully isolated.
+
+What remains is Phase 3 polish; the multi-tenant model is described in
+[TECH_STACK.md](TECH_STACK.md).
 
 ## Phase 1 — Multi-tenant foundation (stay private while building)
 
@@ -42,9 +50,9 @@ household onboarding (create/join/invites/capacity).
 
 ## Phase 3 — Polish & operations
 
-- [ ] Drop the deprecated `is_allowed()` stub once open-signup clients are deployed
-      everywhere (kept in 0014 only so pre-rollout clients keep working).
+- [x] Drop the deprecated `is_allowed()` stub (done in `0017`; `0014` had kept it
+      only so pre-rollout clients kept working).
 - [ ] Generic default categories and currency/locale (defaults are currently Portuguese).
 - [ ] Delete account/household (GDPR) + privacy and terms pages.
 - [ ] Supabase tier limits and basic abuse caps.
-- [ ] Update README / TECH_STACK docs for the multi-tenant model.
+- [x] Update README / TECH_STACK docs for the multi-tenant model.

@@ -6,4 +6,10 @@ dist
 
 .vercel
 
-.claude/skills
+# Local agent tooling - kept out of the public repo
+.agents
+.claude
+skills-lock.json
+AGENTS.md
+CLAUDE.md
+docs/KNOWLEDGE.md

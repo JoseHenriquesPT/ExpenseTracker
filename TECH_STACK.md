@@ -21,9 +21,9 @@ reachable from any device, private to two people, and cheap/simple to host.
 | PWA | **vite-plugin-pwa** (Workbox) | Installable to home screen, offline asset cache, self-updating |
 | Charts | **Recharts** | Declarative React charts for the Dashboard overview |
 | Backend | **Supabase** (Postgres) | Hosted DB reachable from phone + desktop, no server to run |
-| Auth | **Supabase Auth + Google OAuth** | Sign-in without managing passwords |
-| Security | **Postgres Row-Level Security** + email allowlist | Real enforcement at the database, not the client |
-| Realtime | **Supabase Realtime** | The other person's edits appear live |
+| Auth | **Supabase Auth** (Google + email magic link) | Sign-in without managing passwords |
+| Security | **Postgres Row-Level Security** + household membership | Real enforcement at the database, not the client |
+| Realtime | **Supabase Realtime** | The rest of the household sees edits live |
 | Icons | Committed PNG set | Generated once; no build step needed |
 | Hosting | **Vercel** | Static-site hosting + CI deploys |
 
@@ -88,7 +88,7 @@ and the browser talks to it directly through `@supabase/supabase-js`.
 [src/db/supabase.ts](src/db/supabase.ts) creates the singleton client from
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (see [.env.example](.env.example)).
 The **anon key is meant to ship in the browser** — on its own it can do nothing,
-because every request must still pass RLS + a valid Google session. The
+because every request must still pass RLS as a valid signed-in user. The
 `service_role` key is never used client-side.
 
 ### Data-access layer
@@ -101,34 +101,46 @@ because every request must still pass RLS + a valid Google session. The
 > [README](README.md) for the migration note.
 
 ### Schema & migrations
-The `supabase/migrations/*.sql` files define the seven tables plus the security
-model, and are run in order by hand in the Supabase SQL editor (see
-[README](README.md) → "First-time backend setup"). Dates are stored as ISO
+The `supabase/migrations/*.sql` files define the domain tables plus the
+household tenancy model and the security model, and are run in order by hand in
+the Supabase SQL editor (see [README](README.md) → "First-time backend setup").
+Dates are stored as ISO
 `YYYY-MM-DD` **text** so they sort lexicographically — which `finance.ts` relies
 on for its window queries. `0005` adds `import_backup()`, which restores a
-backup in one transaction.
+backup in one transaction (`0009` scopes it to the caller's household).
 
-### Auth — Google OAuth
-[src/auth/AuthGate.tsx](src/auth/AuthGate.tsx) wraps the whole app. It uses
-`supabase.auth.signInWithOAuth({ provider: "google" })` and renders the app only
-for a signed-in account. Sign-out lives in the sidebar ([src/App.tsx](src/App.tsx)).
+### Auth — Google OAuth or email magic link
+[src/auth/AuthGate.tsx](src/auth/AuthGate.tsx) wraps the whole app. It signs
+users in with `supabase.auth.signInWithOAuth({ provider: "google" })` or an
+email magic link, and renders the app only for a signed-in account. On sign-in
+it also calls `claim_pending_membership()` to bind the account's `userId` to its
+household membership row. Sign-out lives in the sidebar ([src/App.tsx](src/App.tsx)).
 
-### Security — Row-Level Security + allowlist
+### Security — Row-Level Security + household membership
 This is the real gate, enforced **in the database**, not the client:
-- An `allowed_emails` table holds the permitted accounts. It has RLS enabled and
-  **no policies**, so it's unreachable from the browser API — managed only from
-  the SQL editor.
-- An `is_allowed()` SQL function (`security definer`) checks the signed-in user's
-  email against that table.
-- Every domain table has select/insert/update/delete policies that all call
-  `is_allowed()`. AuthGate also calls the `is_allowed` RPC just to show a clean
-  "not authorized" screen — but even if the UI were bypassed, RLS still blocks
-  unauthorized rows.
+- Every account belongs to at most one household (`households` +
+  `household_members`), and every row of every domain table carries a
+  `householdId`.
+- An `is_member(household_id)` SQL function (`security definer`) answers "does
+  the signed-in user belong to this household?". All select/insert/update/delete
+  policies on the domain tables call it, so even a fully bypassed UI cannot reach
+  another household's rows.
+- Membership is **bound to `userId`**, not to an email address: an email matches
+  only a pending, ownerless membership row, so a recycled or stale address grants
+  nothing (`0017`).
+- One household per account is enforced by a unique constraint on
+  `household_members("userId")`, not by an application-level check. Invite codes
+  are minted server-side by `create_invite()`, and `dismantle_household()` is
+  owner-only.
+- The old email allowlist and its `is_allowed()` gate are gone (`0014`): any
+  signed-in account can onboard a household of its own, isolated from all
+  others. [supabase/tests/](supabase/tests/) proves that isolation with pgTAP.
 
-### Realtime — live two-person sync
+### Realtime — live household sync
 [src/db/live.ts](src/db/live.ts) provides the app's `useLiveQuery` hook. A
 version counter bumps on (a) any Postgres change broadcast over a **Supabase
-Realtime** channel — so the *other* person's edits show up live — and (b) every
+Realtime** channel — so the rest of the household's edits show up live — and (b)
+every
 local mutation (`touch()` in `db.ts`), so your own edits reflect immediately.
 `useSyncExternalStore` re-runs queries on each bump. The channel is opened only
 after sign-in, because RLS-protected `postgres_changes` bind the user's token at
@@ -175,8 +187,8 @@ before anything is written, and import runs through the transactional
 ```
 User action in a page (e.g. LedgerPage)
   → db.ts SupaTable method (add/put/delete/...)
-    → @supabase/supabase-js HTTP call (carries the Google session JWT)
-      → Postgres RLS checks is_allowed() against allowed_emails
+    → @supabase/supabase-js HTTP call (carries the signed-in user's session JWT)
+      → Postgres RLS checks is_member() against household_members
         → row written; Realtime broadcasts the change
           → live.ts touch() bumps version → useLiveQuery refetches
             → React re-renders the updated numbers/charts

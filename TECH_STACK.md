@@ -16,8 +16,8 @@ simple to host.
 |-------|--------|-----|
 | Language | **TypeScript** | Type-safe domain model shared by UI, DB layer, and the SQL schema |
 | UI | **React 18** | Component model; `useSyncExternalStore` powers the live-query layer |
-| Routing | **React Router 6** (hash router) | Client-side routing that survives static hosting & file access |
-| Build/dev | **Vite 5** | Fast dev server + optimized Rollup production build |
+| Routing | **React Router 7** (hash router) | Client-side routing that survives static hosting & file access |
+| Build/dev | **Vite 7** | Fast dev server + optimized Rollup production build |
 | PWA | **vite-plugin-pwa** (Workbox) | Installable to home screen, offline asset cache, self-updating |
 | Charts | **Recharts** | Declarative React charts for the Dashboard overview |
 | Backend | **Supabase** (Postgres) | Hosted DB reachable from phone + desktop, no server to run |
@@ -46,13 +46,13 @@ The UI is plain React with function components and hooks. Notable usage:
 - [src/db/live.ts](src/db/live.ts) uses **`useSyncExternalStore`** to build a tiny
   reactive layer (see *Realtime* below).
 
-### React Router 6 — hash router
+### React Router 7 — hash router
 [src/main.tsx](src/main.tsx) uses **`createHashRouter`**. The hash (`/#/expenses`)
 means routing is fully client-side and works even when the app is opened from a
 static host or the filesystem, with no server rewrite rules required. Routes nest
 under [src/App.tsx](src/App.tsx) (the sidebar shell + `<Outlet/>`).
 
-### Vite 5
+### Vite 7
 Dev server and bundler ([vite.config.ts](vite.config.ts)). Scripts in
 [package.json](package.json):
 - `npm run dev` — dev server on port 5173 (auto-opens).

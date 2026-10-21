@@ -10,6 +10,7 @@ and items may move as contributors pick them up.
 - [x] Google OAuth and email magic-link sign-in
 - [x] Household onboarding with invite codes and owner controls
 - [x] Common and individual expenses, income, bills and savings
+- [x] Recurring monthly income and bills
 - [x] Income-proportional and custom settlement splits
 - [x] Monthly and annual overview with charts
 - [x] Planned expenses with notes, links and tags
@@ -30,6 +31,6 @@ and items may move as contributors pick them up.
 
 - [ ] Additional auth providers
 - [ ] More granular household roles
-- [ ] Recurring-expense automation
+- [ ] Recurring-expense automation (common and individual expenses)
 - [ ] Importers for common bank CSV formats
 - [ ] End-to-end tests against a local Supabase stack

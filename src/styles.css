@@ -125,6 +125,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .neg { color: var(--red); }
 .pill { padding: 2px 8px; border-radius: 999px; font-size: 11px; border: 1px solid var(--border); }
 .pill.savings { color: var(--green); border-color: var(--green); }
+.pill.recurring { color: var(--accent); border-color: var(--accent); }
 .link-more { color: var(--accent); text-decoration: none; font-size: 13px; }
 .link-more:hover { text-decoration: underline; }
 .tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -337,7 +338,9 @@ input[type="range"]:disabled { accent-color: var(--muted); cursor: not-allowed; 
 .modal-title { margin: 0 0 8px; font-size: 16px; }
 .modal-message { margin: 0 0 12px; color: var(--muted); line-height: 1.5; }
 .modal input { width: 100%; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.modal select { width: 100%; }
+.modal .field { flex: 1 1 140px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .modal-actions button { padding: 9px 16px; }
 .modal-actions .danger { background: var(--red); border-color: var(--red); color: #fff; }
 .modal-actions .danger:hover { border-color: var(--red); filter: brightness(1.08); }

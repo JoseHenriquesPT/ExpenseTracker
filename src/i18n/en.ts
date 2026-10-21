@@ -285,6 +285,24 @@ const en = {
     deleteMessage: "Remove the {{amount}} {{category}} bill? This can't be undone.",
   },
 
+  recurring: {
+    repeatMonthly: "Repeats monthly",
+    repeatHint:
+      "Adds this entry automatically to every month ahead until you stop it.",
+    monthlyBadge: "Monthly",
+    editTitle: "Edit entry",
+    applyLabel: "Apply changes to",
+    applyThisMonth: "This month only",
+    applyFuture: "This and future months",
+    dateNote: "The date change applies to this month only.",
+    deleteTitle: "Delete recurring entry",
+    deleteMessage: "Delete the {{amount}} {{category}} entry for {{date}}?",
+    deleteNote:
+      "Earlier months stay. Choose whether to remove only this month or stop the series from here.",
+    deleteThisMonth: "This month only",
+    deleteFuture: "This and future months",
+  },
+
   ledger: {
     titleCombined: "Expenses & Savings",
     titleIncome: "Income",

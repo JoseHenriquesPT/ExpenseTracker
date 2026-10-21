@@ -6,7 +6,7 @@ import { toMessage } from "../lib/errors";
 import i18n from "../i18n";
 import type {
   ExpenseEntry, IncomeEntry, PersonalExpenseEntry, Investment,
-  Bill, PlannedExpense, SettlementRecord, Config,
+  Bill, PlannedExpense, SettlementRecord, Config, RecurringEntry,
 } from "./types";
 
 // Hosted storage: every table lives in Supabase Postgres, gated by Row-Level
@@ -30,6 +30,7 @@ const TABLE = {
   bills: "bills",
   plannedExpenses: "planned_expenses",
   settlements: "settlements",
+  recurringEntries: "recurring_entries",
   config: "config",
 } as const;
 
@@ -189,6 +190,7 @@ export const db = {
   bills: new SupaTable<Bill>(TABLE.bills),
   plannedExpenses: new SupaTable<PlannedExpense>(TABLE.plannedExpenses),
   settlements: new SupaTable<SettlementRecord>(TABLE.settlements),
+  recurringEntries: new SupaTable<RecurringEntry>(TABLE.recurringEntries),
   config: new SupaTable<Config>(TABLE.config),
 };
 

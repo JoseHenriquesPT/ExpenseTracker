@@ -285,6 +285,24 @@ const pt: typeof en = {
     deleteMessage: "Remover a conta de {{amount}} ({{category}})? Isto não pode ser desfeito.",
   },
 
+  recurring: {
+    repeatMonthly: "Repete mensalmente",
+    repeatHint:
+      "Adiciona esta entrada automaticamente a todos os meses seguintes até a parar.",
+    monthlyBadge: "Mensal",
+    editTitle: "Editar entrada",
+    applyLabel: "Aplicar alterações a",
+    applyThisMonth: "Apenas este mês",
+    applyFuture: "Este e os meses seguintes",
+    dateNote: "A alteração de data aplica-se apenas a este mês.",
+    deleteTitle: "Eliminar entrada recorrente",
+    deleteMessage: "Eliminar a entrada de {{amount}} ({{category}}) de {{date}}?",
+    deleteNote:
+      "Os meses anteriores mantêm-se. Escolha se remove apenas este mês ou para a série aqui.",
+    deleteThisMonth: "Apenas este mês",
+    deleteFuture: "Este e os meses seguintes",
+  },
+
   ledger: {
     titleCombined: "Despesas e Poupanças",
     titleIncome: "Rendimentos",

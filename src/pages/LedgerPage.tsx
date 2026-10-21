@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import { useLiveQuery, useSingleMode } from "../db/live";
 import { db, type SupaTable } from "../db/db";
+import { addRecurringIncome, stopRecurringFrom } from "../db/recurring";
 import type { Entry, ExpenseEntry, IncomeEntry, Person } from "../db/types";
 import { filterByWindow, monthEnd, monthStart, SAVINGS_CATEGORY, toISO } from "../lib/finance";
 import { modeText, monthName, personName } from "../lib/labels";
@@ -12,6 +13,8 @@ import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
 import PeriodFilter, { usePeriodFilter } from "../components/PeriodFilter";
 import BackHome from "../components/BackHome";
+import EntryEditDialog from "../components/EntryEditDialog";
+import RecurringDeleteDialog from "../components/RecurringDeleteDialog";
 
 type Kind = "expenses" | "income" | "personalExpenses";
 type EntryMode = "expense" | "savings";
@@ -38,7 +41,7 @@ const SINGLE_NOTE_KEYS = {
 
 type Row = Entry &
   Partial<Pick<ExpenseEntry, "paidBy" | "saved">> &
-  Partial<Pick<IncomeEntry, "person">>;
+  Partial<Pick<IncomeEntry, "person" | "recurringId">>;
 
 export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   const { t } = useTranslation();
@@ -95,6 +98,9 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   const [category, setCategory] = useState("");
   const [person, setPerson] = useState<Person | null>(null);
   const [description, setDescription] = useState("");
+  const [recurring, setRecurring] = useState(false);
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [deleting, setDeleting] = useState<Row | null>(null);
 
   async function add() {
     const num = parseFloat(value);
@@ -124,14 +130,28 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
       }
     } else {
       if (!category) return;
-      await db.income.add({ date, value: num, category, person: who ?? "P1", description });
+      const incomePerson = single ? "P1" : who ?? "P1";
+      if (recurring) {
+        await addRecurringIncome({
+          date, value: num, category, person: incomePerson, description,
+        });
+      } else {
+        await db.income.add({
+          date, value: num, category, person: incomePerson, description,
+        });
+      }
     }
     setValue("");
     setDescription("");
+    setRecurring(false);
   }
 
   async function remove(r: Row) {
     if (r.id == null) return;
+    if (isIncome && r.recurringId != null) {
+      setDeleting(r);
+      return;
+    }
     const label = r.saved
       ? t("ledger.savingsLabel", { amount: fmtMoney(r.value) })
       : `${r.category} — ${fmtMoney(r.value)}`;
@@ -307,6 +327,21 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
             </tr>
           </tbody>
         </table>
+        {isIncome && (
+          <>
+            <label className="settle-check" style={{ marginTop: 12 }}>
+              <input
+                type="checkbox"
+                checked={recurring}
+                onChange={(e) => setRecurring(e.target.checked)}
+              />
+              {t("recurring.repeatMonthly")}
+            </label>
+            <p className="subtitle" style={{ margin: "2px 0 0" }}>
+              {t("recurring.repeatHint")}
+            </p>
+          </>
+        )}
       </div>
 
       {/* ---------------- Registered entries ---------------- */}
@@ -330,7 +365,12 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                 <tr key={r.id}>
                   <td data-label={t("common.table.date")}>{fmtDate(r.date)}</td>
                   <td className="num" data-label={t("common.table.value")}>{fmtMoney(r.value)}</td>
-                  <td data-label={t("common.table.category")}>{r.category}</td>
+                  <td data-label={t("common.table.category")}>
+                    {r.category}
+                    {r.recurringId != null && (
+                      <> <span className="pill recurring">{t("recurring.monthlyBadge")}</span></>
+                    )}
+                  </td>
                   {showPersonCol && (
                     <td data-label={personColTitle}>
                       <span className="pill">{personLabel(r.paidBy ?? r.person)}</span>
@@ -338,7 +378,18 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
                   )}
                   <td data-label={t("common.table.description")}>{r.description}</td>
                   <td>
-                    <button className="ghost danger" onClick={() => remove(r)} disabled={!online}>✕</button>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        className="ghost"
+                        title={t("common.edit")}
+                        aria-label={t("common.edit")}
+                        onClick={() => setEditing(r)}
+                        disabled={!online}
+                      >
+                        ✎
+                      </button>
+                      <button className="ghost danger" onClick={() => remove(r)} disabled={!online}>✕</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -391,6 +442,44 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
             </div>
           )}
         </div>
+      )}
+
+      {editing && isIncome && (
+        <EntryEditDialog
+          kind="income"
+          row={editing}
+          categories={categories}
+          p1Name={names.p1}
+          p2Name={names.p2}
+          single={single}
+          onClose={() => setEditing(null)}
+          onSaved={() => setEditing(null)}
+        />
+      )}
+
+      {deleting && (
+        <RecurringDeleteDialog
+          amount={deleting.value}
+          category={deleting.category}
+          date={deleting.date}
+          busy={busy}
+          onCancel={() => setDeleting(null)}
+          onThisMonth={() =>
+            run(async () => {
+              if (deleting.id != null) await db.income.delete(deleting.id);
+              setDeleting(null);
+            })
+          }
+          onFuture={() =>
+            run(async () => {
+              await stopRecurringFrom("income", {
+                ...deleting,
+                person: deleting.person ?? "P1",
+              } as IncomeEntry);
+              setDeleting(null);
+            })
+          }
+        />
       )}
     </div>
   );

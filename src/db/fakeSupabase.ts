@@ -26,12 +26,15 @@ export class FakeQuery {
 
   select(...args: unknown[]): this { return this.record("select", args); }
   insert(...args: unknown[]): this { return this.record("insert", args); }
+  upsert(...args: unknown[]): this { return this.record("upsert", args); }
   update(...args: unknown[]): this { return this.record("update", args); }
   delete(...args: unknown[]): this { return this.record("delete", args); }
   eq(...args: unknown[]): this { return this.record("eq", args); }
   neq(...args: unknown[]): this { return this.record("neq", args); }
   is(...args: unknown[]): this { return this.record("is", args); }
   gt(...args: unknown[]): this { return this.record("gt", args); }
+  gte(...args: unknown[]): this { return this.record("gte", args); }
+  in(...args: unknown[]): this { return this.record("in", args); }
   order(...args: unknown[]): this { return this.record("order", args); }
   limit(...args: unknown[]): this { return this.record("limit", args); }
 

@@ -11,6 +11,7 @@ No hosted instance or shared backend is provided.
 
 - Single-person or two-person households
 - Common expenses, individual expenses, income, bills, savings and investments
+- Recurring monthly income and bills
 - Income-proportional or custom settlement split
 - Monthly and annual overview with category charts
 - Planned expenses with notes, links and tags

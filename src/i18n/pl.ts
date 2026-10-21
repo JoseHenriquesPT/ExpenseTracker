@@ -289,6 +289,24 @@ const pl: typeof en = {
     deleteMessage: "Usunąć rachunek „{{category}}” na kwotę {{amount}}? Tego nie można cofnąć.",
   },
 
+  recurring: {
+    repeatMonthly: "Powtarza się co miesiąc",
+    repeatHint:
+      "Dodaje ten wpis automatycznie do każdego kolejnego miesiąca, dopóki go nie zatrzymasz.",
+    monthlyBadge: "Miesięcznie",
+    editTitle: "Edytuj wpis",
+    applyLabel: "Zastosuj zmiany do",
+    applyThisMonth: "Tylko ten miesiąc",
+    applyFuture: "Ten i kolejne miesiące",
+    dateNote: "Zmiana daty dotyczy tylko tego miesiąca.",
+    deleteTitle: "Usuń wpis cykliczny",
+    deleteMessage: "Usunąć wpis {{category}} na kwotę {{amount}} z dnia {{date}}?",
+    deleteNote:
+      "Wcześniejsze miesiące zostają. Wybierz, czy usunąć tylko ten miesiąc, czy zatrzymać serię tutaj.",
+    deleteThisMonth: "Tylko ten miesiąc",
+    deleteFuture: "Ten i kolejne miesiące",
+  },
+
   ledger: {
     titleCombined: "Wydatki i oszczędności",
     titleIncome: "Przychody",

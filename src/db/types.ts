@@ -33,6 +33,8 @@ export interface ExpenseEntry extends Entry {
 /** Income sheet — attributed to one person (fixes their fair-share %). */
 export interface IncomeEntry extends Entry {
   person: Person;
+  /** Series that generated this row, when it is a recurring monthly entry. */
+  recurringId?: number;
 }
 
 /** Individual Expenses — personal spending attributed to one person.
@@ -64,6 +66,30 @@ export interface Investment extends Entry {
 export interface Bill extends Entry {
   scope: BillScope;
   paidBy: Person;
+  /** Series that generated this row, when it is a recurring monthly bill. */
+  recurringId?: number;
+}
+
+/** A monthly recurring income or bill. The app materializes one real income or
+ *  bill row per month (starting at `startDate`), linked back through
+ *  `recurringId`; the series only holds the template the generator copies.
+ *  Deleting a row removes that month only; deleting the series stops future
+ *  months. `generatedThrough` is the last occurrence already written, so a
+ *  deleted month is never silently recreated. */
+export interface RecurringEntry {
+  id?: number;
+  kind: "income" | "bill";
+  startDate: string;
+  value: number;
+  category: string;
+  description?: string;
+  /** Income only. */
+  person?: Person;
+  /** Bills only. */
+  scope?: Scope;
+  /** Bills only — who fronted a Common bill. */
+  paidBy?: Person;
+  generatedThrough?: string;
 }
 
 /** One link attached to a planned expense: where to find it, plus the text

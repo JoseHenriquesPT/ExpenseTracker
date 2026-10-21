@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useLiveQuery, useSingleMode } from "../db/live";
 import { db } from "../db/db";
-import type { BillScope, Person } from "../db/types";
+import { addRecurringBill, stopRecurringFrom } from "../db/recurring";
+import type { Bill, BillScope, Person } from "../db/types";
 import { filterByWindow, toISO } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
 import { personName, scopeName } from "../lib/labels";
@@ -11,6 +12,8 @@ import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
 import PeriodFilter, { usePeriodFilter } from "../components/PeriodFilter";
 import BackHome from "../components/BackHome";
+import EntryEditDialog from "../components/EntryEditDialog";
+import RecurringDeleteDialog from "../components/RecurringDeleteDialog";
 
 const SCOPES: BillScope[] = ["P1", "P2", "Common"];
 
@@ -33,6 +36,9 @@ export default function BillsPage() {
   const [scope, setScope] = useState<BillScope>("Common");
   const [paidBy, setPaidBy] = useState<Person>("P1");
   const [description, setDescription] = useState("");
+  const [recurring, setRecurring] = useState(false);
+  const [editing, setEditing] = useState<Bill | null>(null);
+  const [deleting, setDeleting] = useState<Bill | null>(null);
 
   const billCats = config?.billCategories ?? [];
 
@@ -50,23 +56,38 @@ export default function BillsPage() {
     // For a personal bill the payer is implicitly that person. Single mode has
     // just one person, so every bill is theirs.
     const who: Person = single ? "P1" : scope === "Common" ? paidBy : scope;
-    await db.bills.add({
-      date, value: num, category,
-      scope: single ? "Common" : scope, paidBy: who, description,
-    });
+    if (recurring) {
+      await addRecurringBill({
+        date, value: num, category,
+        scope: single ? "Common" : scope, paidBy: who, description,
+      });
+    } else {
+      await db.bills.add({
+        date, value: num, category,
+        scope: single ? "Common" : scope, paidBy: who, description,
+      });
+    }
     setValue("");
     setDescription("");
+    setRecurring(false);
   }
 
-  async function deleteBill(id: number | undefined, category: string, value: number) {
-    if (id == null) return;
+  async function deleteBill(bill: Bill) {
+    if (bill.id == null) return;
+    if (bill.recurringId != null) {
+      setDeleting(bill);
+      return;
+    }
     const ok = await confirm({
       title: t("bills.deleteTitle"),
-      message: t("bills.deleteMessage", { amount: fmtMoney(value), category }),
+      message: t("bills.deleteMessage", {
+        amount: fmtMoney(bill.value),
+        category: bill.category,
+      }),
       confirmLabel: t("common.delete"),
       danger: true,
     });
-    if (ok) await db.bills.delete(id);
+    if (ok) await db.bills.delete(bill.id);
   }
 
   const head = (
@@ -156,6 +177,17 @@ export default function BillsPage() {
             </tr>
           </tbody>
         </table>
+        <label className="settle-check" style={{ marginTop: 12 }}>
+          <input
+            type="checkbox"
+            checked={recurring}
+            onChange={(e) => setRecurring(e.target.checked)}
+          />
+          {t("recurring.repeatMonthly")}
+        </label>
+        <p className="subtitle" style={{ margin: "2px 0 0" }}>
+          {t("recurring.repeatHint")}
+        </p>
       </div>
 
       {/* ---------------- Registered bills (filterable) ---------------- */}
@@ -178,7 +210,12 @@ export default function BillsPage() {
               <tr key={b.id}>
                 <td data-label={t("common.table.date")}>{fmtDate(b.date)}</td>
                 <td className="num" data-label={t("common.table.value")}>{fmtMoney(b.value)}</td>
-                <td data-label={t("common.table.category")}>{b.category}</td>
+                <td data-label={t("common.table.category")}>
+                  {b.category}
+                  {b.recurringId != null && (
+                    <> <span className="pill recurring">{t("recurring.monthlyBadge")}</span></>
+                  )}
+                </td>
                 {!single && (
                   <>
                     <td data-label={t("common.table.scope")}>
@@ -191,7 +228,24 @@ export default function BillsPage() {
                 )}
                 <td data-label={t("common.table.description")}>{b.description}</td>
                 <td>
-                  <button className="ghost danger" onClick={() => deleteBill(b.id, b.category, b.value)} disabled={!online}>✕</button>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      className="ghost"
+                      title={t("common.edit")}
+                      aria-label={t("common.edit")}
+                      onClick={() => setEditing(b)}
+                      disabled={!online}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      className="ghost danger"
+                      onClick={() => deleteBill(b)}
+                      disabled={!online}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -203,6 +257,41 @@ export default function BillsPage() {
           </div>
         )}
       </div>
+
+      {editing && (
+        <EntryEditDialog
+          kind="bill"
+          row={editing}
+          categories={billCats}
+          p1Name={names.p1}
+          p2Name={names.p2}
+          single={single}
+          onClose={() => setEditing(null)}
+          onSaved={() => setEditing(null)}
+        />
+      )}
+
+      {deleting && (
+        <RecurringDeleteDialog
+          amount={deleting.value}
+          category={deleting.category}
+          date={deleting.date}
+          busy={busy}
+          onCancel={() => setDeleting(null)}
+          onThisMonth={() =>
+            run(async () => {
+              if (deleting.id != null) await db.bills.delete(deleting.id);
+              setDeleting(null);
+            })
+          }
+          onFuture={() =>
+            run(async () => {
+              await stopRecurringFrom("bill", deleting);
+              setDeleting(null);
+            })
+          }
+        />
+      )}
     </div>
   );
 }

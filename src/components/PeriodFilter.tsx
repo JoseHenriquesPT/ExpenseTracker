@@ -1,14 +1,19 @@
-import { useMemo, useState } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
-import { monthStart, monthEnd, yearStart, yearEnd } from "../lib/finance";
 import type { DateWindow } from "../lib/finance";
 import { months, yearOptions } from "../lib/labels";
+import {
+  periodStore,
+  periodWindow,
+  type PeriodMode,
+} from "../lib/period";
 
-// Month/year period filter, mirroring the Dashboard's toolbar. Shared by the
-// ledger tabs so their registered-entry lists filter the same way the
-// Dashboard does. "All time" is an extra option the Dashboard doesn't have,
-// so a list can still show every entry.
-export type PeriodMode = "monthly" | "annual" | "all";
+// Month/year period filter, mirroring the Dashboard's toolbar. Every page that
+// shows a period filter reads the same saved selection, so the month picked in
+// one place follows the user across the app (and across reloads). "All time" is
+// an extra option the Dashboard doesn't have, so a list can still show every
+// entry.
+export type { PeriodMode } from "../lib/period";
 
 export interface PeriodFilterState {
   mode: PeriodMode;
@@ -23,25 +28,32 @@ export interface PeriodFilterState {
 
 /** Filter state + the ISO window it resolves to. Defaults to the current month. */
 export function usePeriodFilter(): PeriodFilterState {
-  const now = new Date();
-  const [mode, setMode] = useState<PeriodMode>("monthly");
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+  const period = useSyncExternalStore(
+    periodStore.subscribe,
+    periodStore.get,
+    periodStore.get
+  );
 
-  const window = useMemo<DateWindow>(() => {
-    if (mode === "all") return null;
-    return mode === "monthly"
-      ? [monthStart(year, month), monthEnd(year, month)]
-      : [yearStart(year), yearEnd(year)];
-  }, [mode, month, year]);
+  const window = useMemo(() => periodWindow(period), [period]);
 
-  return { mode, month, year, window, setMode, setMonth, setYear };
+  return {
+    ...period,
+    window,
+    setMode: (mode) => periodStore.set({ mode }),
+    setMonth: (month) => periodStore.set({ month }),
+    setYear: (year) => periodStore.set({ year }),
+  };
 }
 
 export default function PeriodFilter({ state }: { state: PeriodFilterState }) {
   const { t } = useTranslation();
   const { mode, month, year, setMode, setMonth, setYear } = state;
-  const years = useMemo(() => yearOptions(), []);
+  const years = useMemo(() => {
+    const options = yearOptions();
+    return options.includes(year)
+      ? options
+      : [...options, year].sort((a, b) => a - b);
+  }, [year]);
 
   return (
     <div className="toolbar">

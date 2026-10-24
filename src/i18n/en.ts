@@ -326,9 +326,13 @@ const en = {
     savingsPill: "Savings",
     categoryPlaceholder: "— category —",
     registeredTitle: "Registered entries",
-    latestTitle: "Latest this month",
+    latestTitle: "Latest entries",
     latestNote:
       "The 5 most recent entries of {{month}} {{year}}. <history>View full history →</history>",
+    latestNoteYear:
+      "The 5 most recent entries of {{year}}. <history>View full history →</history>",
+    latestNoteAll:
+      "The 5 most recent entries. <history>View full history →</history>",
     total: "Total for this period: <strong>{{amount}}</strong>",
     count_one: "{{count}} entry",
     count_few: "{{count}} entries",
@@ -336,7 +340,6 @@ const en = {
     count_other: "{{count}} entries",
     emptyNone: "No entries yet — add one above.",
     emptyPeriod: "No entries for this period.",
-    emptyMonth: "No entries in {{month}} yet — see the full history for older ones.",
     deleteTitle: "Delete entry",
     deleteMessage: "Remove {{label}}? This can't be undone.",
     deleteMessageDesc: "Remove {{label}} ({{desc}})? This can't be undone.",
@@ -347,6 +350,7 @@ const en = {
     title: "History of Expenses & Investments",
     subtitle:
       "Every registered entry in one place — spending, savings and bills — grouped by month, newest first.",
+    editTitle: "Edit entry",
     allTypes: "All types",
     individualOption: "Individual expenses",
     savingsOption: "Savings",

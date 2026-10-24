@@ -326,9 +326,13 @@ const pt: typeof en = {
     savingsPill: "Poupança",
     categoryPlaceholder: "— categoria —",
     registeredTitle: "Entradas registadas",
-    latestTitle: "Mais recentes deste mês",
+    latestTitle: "Entradas mais recentes",
     latestNote:
       "As 5 entradas mais recentes de {{month}} de {{year}}. <history>Ver histórico completo →</history>",
+    latestNoteYear:
+      "As 5 entradas mais recentes de {{year}}. <history>Ver histórico completo →</history>",
+    latestNoteAll:
+      "As 5 entradas mais recentes. <history>Ver histórico completo →</history>",
     total: "Total deste período: <strong>{{amount}}</strong>",
     count_one: "{{count}} entrada",
     count_few: "{{count}} entradas",
@@ -336,7 +340,6 @@ const pt: typeof en = {
     count_other: "{{count}} entradas",
     emptyNone: "Ainda não há entradas — adicione uma acima.",
     emptyPeriod: "Não há entradas neste período.",
-    emptyMonth: "Ainda não há entradas em {{month}} — veja o histórico completo para as anteriores.",
     deleteTitle: "Eliminar entrada",
     deleteMessage: "Remover {{label}}? Isto não pode ser desfeito.",
     deleteMessageDesc: "Remover {{label}} ({{desc}})? Isto não pode ser desfeito.",
@@ -347,6 +350,7 @@ const pt: typeof en = {
     title: "Histórico de Despesas e Investimentos",
     subtitle:
       "Todas as entradas num só lugar — despesas, poupanças e contas — agrupadas por mês, da mais recente para a mais antiga.",
+    editTitle: "Editar entrada",
     allTypes: "Todos os tipos",
     individualOption: "Despesas individuais",
     savingsOption: "Poupanças",

@@ -1,11 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useLiveQuery, useSingleMode } from "../db/live";
 import { db } from "../db/db";
 import { addRecurringBill, stopRecurringFrom } from "../db/recurring";
 import type { Bill, BillScope, Person } from "../db/types";
-import { filterByWindow, toISO } from "../lib/finance";
+import { filterByWindow } from "../lib/finance";
 import { fmtMoney, fmtDate } from "../lib/format";
+import { dateForPeriod } from "../lib/period";
 import { personName, scopeName } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
@@ -29,8 +30,12 @@ export default function BillsPage() {
   const scopeLabel = (s: BillScope) => scopeName(s, names);
   const personLabel = (p: Person) => personName(p, names);
 
+  // The list filters by period, like the ledger tabs / Dashboard. The same
+  // saved period seeds the new-bill date so past months can be filled in.
+  const filter = usePeriodFilter();
+
   // --- new bill form (registering a bill counts as paying it) ---
-  const [date, setDate] = useState(toISO(new Date()));
+  const [date, setDate] = useState(() => dateForPeriod(filter));
   const [value, setValue] = useState("");
   const [category, setCategory] = useState("");
   const [scope, setScope] = useState<BillScope>("Common");
@@ -40,10 +45,12 @@ export default function BillsPage() {
   const [editing, setEditing] = useState<Bill | null>(null);
   const [deleting, setDeleting] = useState<Bill | null>(null);
 
+  useEffect(() => {
+    setDate(dateForPeriod(filter));
+  }, [filter.mode, filter.month, filter.year]);
+
   const billCats = config?.billCategories ?? [];
 
-  // The list filters by period, like the ledger tabs / Dashboard.
-  const filter = usePeriodFilter();
   const filtered = useMemo(
     () => filterByWindow(bills ?? [], filter.window),
     [bills, filter.window]

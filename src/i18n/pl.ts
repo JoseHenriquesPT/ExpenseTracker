@@ -330,9 +330,13 @@ const pl: typeof en = {
     savingsPill: "Oszczędności",
     categoryPlaceholder: "— kategoria —",
     registeredTitle: "Zarejestrowane wpisy",
-    latestTitle: "Najnowsze w tym miesiącu",
+    latestTitle: "Najnowsze wpisy",
     latestNote:
       "5 najnowszych wpisów za {{month}} {{year}}. <history>Zobacz pełną historię →</history>",
+    latestNoteYear:
+      "5 najnowszych wpisów w roku {{year}}. <history>Zobacz pełną historię →</history>",
+    latestNoteAll:
+      "5 najnowszych wpisów. <history>Zobacz pełną historię →</history>",
     total: "Suma za ten okres: <strong>{{amount}}</strong>",
     count_one: "{{count}} wpis",
     count_few: "{{count}} wpisy",
@@ -340,7 +344,6 @@ const pl: typeof en = {
     count_other: "{{count}} wpisów",
     emptyNone: "Jeszcze nie ma wpisów — dodaj powyżej.",
     emptyPeriod: "Brak wpisów w tym okresie.",
-    emptyMonth: "Jeszcze nie ma wpisów w miesiącu {{month}} — starsze znajdziesz w pełnej historii.",
     deleteTitle: "Usuń wpis",
     deleteMessage: "Usunąć {{label}}? Tego nie można cofnąć.",
     deleteMessageDesc: "Usunąć {{label}} ({{desc}})? Tego nie można cofnąć.",
@@ -351,6 +354,7 @@ const pl: typeof en = {
     title: "Historia wydatków i inwestycji",
     subtitle:
       "Każdy zarejestrowany wpis w jednym miejscu — wydatki, oszczędności i rachunki — pogrupowane według miesiąca, od najnowszych.",
+    editTitle: "Edytuj wpis",
     allTypes: "Wszystkie typy",
     individualOption: "Wydatki osobiste",
     savingsOption: "Oszczędności",

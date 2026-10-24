@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useLiveQuery } from "../db/live";
 import { db } from "../db/db";
 import type { InvestmentAction, Investment, Scope } from "../db/types";
-import { filterByWindow, toISO, summarizeInvestments, investmentUnits } from "../lib/finance";
+import { filterByWindow, summarizeInvestments, investmentUnits } from "../lib/finance";
 import { fmtMoney, fmtDate, fmtNum } from "../lib/format";
+import { dateForPeriod } from "../lib/period";
 import { scopeName } from "../lib/labels";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
@@ -32,7 +33,10 @@ export default function InvestmentsPage() {
   const personNames = { p1: config?.p1Name ?? "P1", p2: config?.p2Name ?? "P2" };
   const scopeLabel = (s: Scope) => scopeName(s, personNames);
 
-  const [date, setDate] = useState(toISO(new Date()));
+  // The transaction list and the new-trade date follow the shared period.
+  const filter = usePeriodFilter();
+
+  const [date, setDate] = useState(() => dateForPeriod(filter));
   const [action, setAction] = useState<InvestmentAction>("Invested");
   const [name, setName] = useState("");
   const [scope, setScope] = useState<Scope>("Common");
@@ -42,6 +46,10 @@ export default function InvestmentsPage() {
   const [description, setDescription] = useState("");
   // The two trade fields the user last touched drive the third (derived) one.
   const [drivers, setDrivers] = useState<TradeField[]>(["units", "price"]);
+
+  useEffect(() => {
+    setDate(dateForPeriod(filter));
+  }, [filter.mode, filter.month, filter.year]);
 
   // Edit one of value/price/units; recompute whichever field the user hasn't
   // touched most recently, from value = price × units.
@@ -113,7 +121,6 @@ export default function InvestmentsPage() {
   );
 
   // The transactions list is period-filtered, like every other ledger.
-  const filter = usePeriodFilter();
   const filtered = useMemo(
     () => filterByWindow(rows ?? [], filter.window),
     [rows, filter.window]

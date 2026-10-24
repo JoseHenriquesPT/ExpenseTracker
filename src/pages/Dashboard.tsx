@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -17,6 +17,7 @@ import { modeText, months, monthName, personName, yearOptions } from "../lib/lab
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
+import { usePeriodFilter } from "../components/PeriodFilter";
 
 const PIE_COLORS = [
   "#6c8cff", "#43c59e", "#ffb454", "#ff6b6b", "#b888ff",
@@ -27,10 +28,11 @@ type Mode = "monthly" | "annual";
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const now = new Date();
-  const [mode, setMode] = useState<Mode>("monthly");
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const filter = usePeriodFilter();
+  // The Dashboard has no "All time" view: a shared all-time selection shows as
+  // the current month here, and the month/year still follow the other pages.
+  const mode: Mode = filter.mode === "annual" ? "annual" : "monthly";
+  const { month, year } = filter;
 
   const single = useSingleMode();
   const labels = modeText(single);
@@ -92,7 +94,10 @@ export default function Dashboard() {
     return computeSettlement({ income, expenses, bills, settlements, split }, start, end);
   }, [ready, start, end, income, expenses, bills, settlements, split?.method, split?.customShareP1]);
 
-  const years = useMemo(() => yearOptions(), []);
+  const years = useMemo(() => {
+    const options = yearOptions();
+    return options.includes(year) ? options : [...options, year].sort((a, b) => a - b);
+  }, [year]);
 
   if (!overview || !splits || !settlement || !config)
     return <div className="empty">{t("common.loading")}</div>;
@@ -191,16 +196,16 @@ export default function Dashboard() {
       {/* Period controls live at the bottom so the numbers are the first thing
           you see; the person switcher stays at the top as the view tab. */}
       <div className="toolbar" style={{ marginTop: 16, marginBottom: 0 }}>
-        <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
+        <select value={mode} onChange={(e) => filter.setMode(e.target.value as Mode)}>
           <option value="monthly">{t("common.monthly")}</option>
           <option value="annual">{t("common.annual")}</option>
         </select>
         {mode === "monthly" && (
-          <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+          <select value={month} onChange={(e) => filter.setMonth(Number(e.target.value))}>
             {months().map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
           </select>
         )}
-        <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
+        <select value={year} onChange={(e) => filter.setYear(Number(e.target.value))}>
           {years.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>

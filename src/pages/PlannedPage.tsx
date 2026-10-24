@@ -3,7 +3,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { useLiveQuery, useSingleMode } from "../db/live";
 import { db } from "../db/db";
 import type { Person, PlannedExpense, PlannedLink, Scope } from "../db/types";
-import { toISO } from "../lib/finance";
+import { dateForPeriod } from "../lib/period";
 import { fmtMoney, fmtDate } from "../lib/format";
 import { personName, scopeName, type PersonNames } from "../lib/labels";
 import { purchaseEntry, purchasedPlanPatch } from "../lib/planned";
@@ -13,6 +13,7 @@ import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
 import BackHome from "../components/BackHome";
+import { usePeriodFilter } from "../components/PeriodFilter";
 
 const EMPTY_LINK: PlannedLink = { text: "", url: "" };
 
@@ -427,6 +428,7 @@ function PurchaseDialog({
   const { t } = useTranslation();
   const { busy, run } = useBusy();
   const single = useSingleMode();
+  const filter = usePeriodFilter();
   const [value, setValue] = useState("");
   const [scope, setScope] = useState<Scope>("Common");
   const [paidBy, setPaidBy] = useState<Person>("P1");
@@ -449,7 +451,7 @@ function PurchaseDialog({
       const effScope: Scope = single ? "Common" : scope;
       const effPaidBy: Person = single ? "P1" : paidBy;
       const input = {
-        value: num, scope: effScope, paidBy: effPaidBy, date: toISO(new Date()),
+        value: num, scope: effScope, paidBy: effPaidBy, date: dateForPeriod(filter),
       };
       const target = purchaseEntry(plan, input);
       if (target.table === "expenses") await db.expenses.add(target.row);

@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import { useLiveQuery, useSingleMode } from "../db/live";
 import { db, type SupaTable } from "../db/db";
 import { addRecurringIncome, stopRecurringFrom } from "../db/recurring";
 import type { Entry, ExpenseEntry, IncomeEntry, Person } from "../db/types";
-import { filterByWindow, monthEnd, monthStart, SAVINGS_CATEGORY, toISO } from "../lib/finance";
+import { filterByWindow, SAVINGS_CATEGORY } from "../lib/finance";
 import { modeText, monthName, personName } from "../lib/labels";
 import { fmtMoney, fmtDate } from "../lib/format";
+import { dateForPeriod } from "../lib/period";
 import { useOnline } from "../lib/useOnline";
 import { confirm } from "../lib/confirm";
 import { useBusy } from "../lib/useBusy";
@@ -72,6 +73,9 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
     : labels.expenses;
   const online = useOnline();
   const { busy, run } = useBusy();
+  // The month selected anywhere in the app also seeds new entries, so a past
+  // month can be filled in without changing the date by hand each time.
+  const filter = usePeriodFilter();
 
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const rows = useLiveQuery(
@@ -93,7 +97,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   ];
   const personLabel = (p?: Person) => (p ? personName(p, names) : "");
 
-  const [date, setDate] = useState(toISO(new Date()));
+  const [date, setDate] = useState(() => dateForPeriod(filter));
   const [value, setValue] = useState("");
   const [category, setCategory] = useState("");
   const [person, setPerson] = useState<Person | null>(null);
@@ -101,6 +105,10 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   const [recurring, setRecurring] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [deleting, setDeleting] = useState<Row | null>(null);
+
+  useEffect(() => {
+    setDate(dateForPeriod(filter));
+  }, [filter.mode, filter.month, filter.year]);
 
   async function add() {
     const num = parseFloat(value);
@@ -167,7 +175,6 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
   }
 
   // The registered-entries list filters by period, just like the Dashboard.
-  const filter = usePeriodFilter();
   const filtered = useMemo(
     () => filterByWindow(rows ?? [], filter.window),
     [rows, filter.window]
@@ -175,23 +182,16 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
 
   const total = filtered.reduce((acc, r) => acc + r.value, 0);
 
-  // Expenses/Savings show a short "latest this month" list; the History page
-  // is where the full record lives.
-  const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
-  const monthWindow: [string, string] = [
-    monthStart(currentYear, currentMonth),
-    monthEnd(currentYear, currentMonth),
-  ];
+  // Expenses/Savings show a short latest list for the selected period; the
+  // History page is where the full record lives.
   const recent = useMemo(() => {
     if (!canSave) return [];
-    return filterByWindow(rows ?? [], monthWindow)
+    return filterByWindow(rows ?? [], filter.window)
       .sort((a, b) =>
         a.date !== b.date ? (a.date < b.date ? 1 : -1) : (b.id ?? 0) - (a.id ?? 0)
       )
       .slice(0, 5);
-  }, [rows, canSave, monthWindow[0], monthWindow[1]]);
+  }, [rows, canSave, filter.window]);
 
   // Income, Common Expenses and Individual Expenses all attribute to a person.
   const personColTitle = isExpense ? t("common.table.paidBy") : t("common.table.person");
@@ -405,11 +405,24 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
         <div className="panel">
           <h3 style={{ marginTop: 0 }}>{t("ledger.latestTitle")}</h3>
           <p className="subtitle">
-            <Trans
-              i18nKey="ledger.latestNote"
-              values={{ month: monthName(currentMonth), year: currentYear }}
-              components={{ history: <Link to="/history" className="link-more" /> }}
-            />
+            {filter.mode === "monthly" ? (
+              <Trans
+                i18nKey="ledger.latestNote"
+                values={{ month: monthName(filter.month), year: filter.year }}
+                components={{ history: <Link to="/history" className="link-more" /> }}
+              />
+            ) : filter.mode === "annual" ? (
+              <Trans
+                i18nKey="ledger.latestNoteYear"
+                values={{ year: filter.year }}
+                components={{ history: <Link to="/history" className="link-more" /> }}
+              />
+            ) : (
+              <Trans
+                i18nKey="ledger.latestNoteAll"
+                components={{ history: <Link to="/history" className="link-more" /> }}
+              />
+            )}
           </p>
           <table className="cards-on-mobile">
             {head}
@@ -438,7 +451,7 @@ export default function LedgerPage({ tabs }: { tabs: Kind[] }) {
             <div className="empty">
               {(rows ?? []).length === 0
                 ? t("ledger.emptyNone")
-                : t("ledger.emptyMonth", { month: monthName(currentMonth) })}
+                : t("ledger.emptyPeriod")}
             </div>
           )}
         </div>

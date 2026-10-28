@@ -98,6 +98,13 @@ const pl: typeof en = {
       pt: "Português (Portugal)",
       pl: "Polski",
     },
+    currency: {
+      title: "Waluta",
+      subtitle:
+        "Kwoty są wyświetlane w tej walucie — istniejące wartości nie są przeliczane. Wybór zostanie zapamiętany na tym urządzeniu.",
+      eur: "Euro (€)",
+      pln: "Polski złoty (zł)",
+    },
     account: {
       title: "Konto",
       signOut: "Wyloguj się",

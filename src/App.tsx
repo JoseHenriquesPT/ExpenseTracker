@@ -5,6 +5,7 @@ import { ensureConfig } from "./db/db";
 import { ensureRecurring } from "./db/recurring";
 import { useHousehold } from "./db/live";
 import { useOnline } from "./lib/useOnline";
+import { useCurrency } from "./lib/currency";
 import Toaster from "./components/Toaster";
 import ConfirmDialog from "./components/ConfirmDialog";
 
@@ -12,6 +13,9 @@ export default function App() {
   const { t } = useTranslation();
   const online = useOnline();
   const household = useHousehold();
+  // Re-render the tree when the display currency changes in Settings so every
+  // formatted amount updates without a reload.
+  const currency = useCurrency();
 
   // Seed the config singleton on first launch.
   useEffect(() => {
@@ -25,7 +29,7 @@ export default function App() {
   }, [household?.id]);
 
   return (
-    <div className="app">
+    <div className="app" data-currency={currency}>
       <main className="content">
         {!online && (
           <div className="offline-banner" role="status">

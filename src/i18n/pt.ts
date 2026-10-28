@@ -97,6 +97,13 @@ const pt: typeof en = {
       pt: "Português (Portugal)",
       pl: "Polski",
     },
+    currency: {
+      title: "Moeda",
+      subtitle:
+        "Os valores são apresentados nesta moeda — os valores existentes não são convertidos. A escolha fica guardada neste dispositivo.",
+      eur: "Euro (€)",
+      pln: "Złoty polaco (zł)",
+    },
     account: {
       title: "Conta",
       signOut: "Terminar sessão",

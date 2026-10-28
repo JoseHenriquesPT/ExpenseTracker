@@ -177,7 +177,8 @@ before anything is written, and import runs through the transactional
   plain static bundle from `npm run build`.
 - **Environment variables** are Vite-style `VITE_*` vars, kept in `.env.local`
   (git-ignored) and set in the build environment of your host. `VITE_CURRENCY` is
-  optional and defaults to `EUR`.
+  optional, defaults to `EUR`, and sets the starting display currency; people
+  can switch between EUR and PLN in Settings on their device.
 
 ---
 

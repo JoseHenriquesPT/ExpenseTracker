@@ -98,6 +98,13 @@ const en = {
       pt: "Português (Portugal)",
       pl: "Polski",
     },
+    currency: {
+      title: "Currency",
+      subtitle:
+        "Amounts are shown in this currency — existing values are not converted. Your choice is remembered on this device.",
+      eur: "Euro (€)",
+      pln: "Polish złoty (zł)",
+    },
     account: {
       title: "Account",
       signOut: "Sign out",

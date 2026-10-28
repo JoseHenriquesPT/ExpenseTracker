@@ -118,8 +118,10 @@ VITE_SUPABASE_ANON_KEY=<your-anon-public-key>
 VITE_CURRENCY=EUR
 ```
 
-`VITE_CURRENCY` is optional and accepts an ISO 4217 code such as `USD`, `GBP` or
-`BRL`. It defaults to `EUR`.
+`VITE_CURRENCY` is optional and sets the starting display currency. It accepts
+an ISO 4217 code such as `USD`, `GBP` or `BRL` and defaults to `EUR`. People can
+switch between EUR and PLN in Settings; that choice is remembered on their
+device.
 
 These values are baked into the build, so set them in the build environment of
 your host as well as locally.

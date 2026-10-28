@@ -16,6 +16,7 @@ No hosted instance or shared backend is provided.
 - Monthly and annual overview with category charts
 - Planned expenses with notes, links and tags
 - English, Portuguese (Portugal) and Polish UI
+- EUR/PLN display currency switch, remembered per device
 - Google OAuth and email magic-link sign-in
 - JSON export/import with transactional restore
 - Installable PWA with offline asset caching

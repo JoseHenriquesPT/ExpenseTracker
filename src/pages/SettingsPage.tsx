@@ -17,6 +17,7 @@ import { pushToast } from "../lib/toast";
 import { useBusy } from "../lib/useBusy";
 import { useOnline } from "../lib/useOnline";
 import { LANGUAGES, currentLanguage, setLanguage } from "../i18n";
+import { currencyChoices, setCurrency, useCurrency } from "../lib/currency";
 import BackHome from "../components/BackHome";
 import TypedConfirmDialog from "../components/TypedConfirmDialog";
 
@@ -121,6 +122,13 @@ export default function SettingsPage() {
   }
 
   const activeLanguage = currentLanguage();
+  const activeCurrency = useCurrency();
+  const currencyLabel = (code: string) =>
+    code === "EUR"
+      ? t("settings.currency.eur")
+      : code === "PLN"
+        ? t("settings.currency.pln")
+        : code;
 
   if (!config) return <div className="empty">{t("common.loading")}</div>;
 
@@ -152,6 +160,26 @@ export default function SettingsPage() {
         </div>
         <p className="subtitle" style={{ marginBottom: 0 }}>
           {t("settings.language.subtitle")}
+        </p>
+      </div>
+
+      <div className="panel" style={{ marginBottom: 24 }}>
+        <h3 style={{ marginTop: 0 }}>{t("settings.currency.title")}</h3>
+        <div className="choice-row" role="group" aria-label={t("settings.currency.title")}>
+          {currencyChoices().map((code) => (
+            <button
+              key={code}
+              type="button"
+              className={activeCurrency === code ? "choice active" : "choice"}
+              aria-pressed={activeCurrency === code}
+              onClick={() => setCurrency(code)}
+            >
+              {currencyLabel(code)}
+            </button>
+          ))}
+        </div>
+        <p className="subtitle" style={{ marginBottom: 0 }}>
+          {t("settings.currency.subtitle")}
         </p>
       </div>
 

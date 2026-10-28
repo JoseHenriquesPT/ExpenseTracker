@@ -1,28 +1,19 @@
 import { uiLocale } from "../i18n";
+import { currentCurrency } from "./currency";
 
-// Display helpers. Set VITE_CURRENCY to an ISO 4217 code to change the display
-// currency; the fallback is EUR. The number locale follows the selected language.
-function currencyCode(): string {
-  const configured = (import.meta.env.VITE_CURRENCY as string | undefined)?.trim().toUpperCase();
-  if (!configured) return "EUR";
-  try {
-    new Intl.NumberFormat("en", { style: "currency", currency: configured });
-    return configured;
-  } catch {
-    return "EUR";
-  }
-}
-
-const CURRENCY = currencyCode();
+// Display helpers. The currency starts at VITE_CURRENCY (EUR when unset) and
+// can be switched in Settings; the number locale follows the selected language.
 
 const money = new Map<string, Intl.NumberFormat>();
 
 function formatter(): Intl.NumberFormat {
   const locale = uiLocale();
-  let cached = money.get(locale);
+  const currency = currentCurrency();
+  const key = `${locale}:${currency}`;
+  let cached = money.get(key);
   if (!cached) {
-    cached = new Intl.NumberFormat(locale, { style: "currency", currency: CURRENCY });
-    money.set(locale, cached);
+    cached = new Intl.NumberFormat(locale, { style: "currency", currency });
+    money.set(key, cached);
   }
   return cached;
 }

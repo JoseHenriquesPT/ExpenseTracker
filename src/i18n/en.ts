@@ -104,6 +104,9 @@ const en = {
         "Amounts are shown in this currency — existing values are not converted. Your choice is remembered on this device.",
       eur: "Euro (€)",
       pln: "Polish złoty (zł)",
+      other: "Other",
+      customLabel: "Currency symbol or code",
+      customPlaceholder: "e.g. USD or R$",
     },
     account: {
       title: "Account",

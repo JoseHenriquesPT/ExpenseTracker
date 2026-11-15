@@ -104,6 +104,9 @@ const pl: typeof en = {
         "Kwoty są wyświetlane w tej walucie — istniejące wartości nie są przeliczane. Wybór zostanie zapamiętany na tym urządzeniu.",
       eur: "Euro (€)",
       pln: "Polski złoty (zł)",
+      other: "Inna",
+      customLabel: "Symbol lub kod waluty",
+      customPlaceholder: "np. USD lub R$",
     },
     account: {
       title: "Konto",

@@ -1,18 +1,39 @@
 import { uiLocale } from "../i18n";
-import { currentCurrency } from "./currency";
+import { currentCurrency, isCurrencyCode } from "./currency";
 
 // Display helpers. The currency starts at VITE_CURRENCY (EUR when unset) and
-// can be switched in Settings; the number locale follows the selected language.
+// can be switched in Settings — either to an ISO code or to a custom symbol;
+// the number locale follows the selected language.
 
-const money = new Map<string, Intl.NumberFormat>();
+/** Just enough of Intl.NumberFormat for fmtMoney (codes and custom symbols). */
+interface MoneyFormatter {
+  format(value: number): string;
+}
 
-function formatter(): Intl.NumberFormat {
+const money = new Map<string, MoneyFormatter>();
+
+/** Format with the user's symbol in the locale's usual currency slot. */
+function customFormatter(locale: string, symbol: string): MoneyFormatter {
+  const base = new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" });
+  return {
+    format(value: number): string {
+      return base
+        .formatToParts(value)
+        .map((part) => (part.type === "currency" ? symbol : part.value))
+        .join("");
+    },
+  };
+}
+
+function formatter(): MoneyFormatter {
   const locale = uiLocale();
   const currency = currentCurrency();
   const key = `${locale}:${currency}`;
   let cached = money.get(key);
   if (!cached) {
-    cached = new Intl.NumberFormat(locale, { style: "currency", currency });
+    cached = isCurrencyCode(currency)
+      ? new Intl.NumberFormat(locale, { style: "currency", currency })
+      : customFormatter(locale, currency);
     money.set(key, cached);
   }
   return cached;

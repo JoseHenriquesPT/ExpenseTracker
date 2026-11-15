@@ -119,9 +119,9 @@ VITE_CURRENCY=EUR
 ```
 
 `VITE_CURRENCY` is optional and sets the starting display currency. It accepts
-an ISO 4217 code such as `USD`, `GBP` or `BRL` and defaults to `EUR`. People can
-switch between EUR and PLN in Settings; that choice is remembered on their
-device.
+an ISO 4217 code such as `USD`, `GBP` or `BRL` and defaults to `EUR`. In Settings,
+people can pick EUR or PLN, or use **Other** to enter any three-letter code or a
+short symbol (such as `R$`); that choice is remembered on their device.
 
 These values are baked into the build, so set them in the build environment of
 your host as well as locally.

@@ -103,6 +103,9 @@ const pt: typeof en = {
         "Os valores são apresentados nesta moeda — os valores existentes não são convertidos. A escolha fica guardada neste dispositivo.",
       eur: "Euro (€)",
       pln: "Złoty polaco (zł)",
+      other: "Outra",
+      customLabel: "Símbolo ou código da moeda",
+      customPlaceholder: "ex.: USD ou R$",
     },
     account: {
       title: "Conta",

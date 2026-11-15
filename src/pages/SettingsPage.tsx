@@ -17,7 +17,15 @@ import { pushToast } from "../lib/toast";
 import { useBusy } from "../lib/useBusy";
 import { useOnline } from "../lib/useOnline";
 import { LANGUAGES, currentLanguage, setLanguage } from "../i18n";
-import { currencyChoices, setCurrency, useCurrency } from "../lib/currency";
+import {
+  CUSTOM_MAX_LENGTH,
+  currencyChoices,
+  isCurrencyCode,
+  isCustomCurrency,
+  normalizeCurrency,
+  setCurrency,
+  useCurrency,
+} from "../lib/currency";
 import BackHome from "../components/BackHome";
 import TypedConfirmDialog from "../components/TypedConfirmDialog";
 
@@ -123,12 +131,42 @@ export default function SettingsPage() {
 
   const activeLanguage = currentLanguage();
   const activeCurrency = useCurrency();
+  const [customOpen, setCustomOpen] = useState(() => isCustomCurrency(activeCurrency));
+  const [customDraft, setCustomDraft] = useState(() =>
+    isCustomCurrency(activeCurrency) ? activeCurrency : ""
+  );
+  const customInput = useRef<HTMLInputElement>(null);
   const currencyLabel = (code: string) =>
     code === "EUR"
       ? t("settings.currency.eur")
       : code === "PLN"
         ? t("settings.currency.pln")
         : code;
+
+  function openCustomCurrency() {
+    setCustomOpen(true);
+    requestAnimationFrame(() => customInput.current?.focus());
+  }
+
+  function chooseCurrency(code: string) {
+    setCurrency(code);
+    setCustomOpen(false);
+  }
+
+  function applyCustomCurrency() {
+    const next = normalizeCurrency(customDraft);
+    if (!next) {
+      // Keep the current choice when the box is empty or unusable.
+      const activeIsCustom = isCustomCurrency(activeCurrency);
+      setCustomDraft(activeIsCustom ? activeCurrency : "");
+      setCustomOpen(activeIsCustom);
+      return;
+    }
+    setCurrency(next);
+    setCustomDraft(next);
+    // A three-letter code becomes a normal chip, so close the custom field.
+    setCustomOpen(!isCurrencyCode(next));
+  }
 
   if (!config) return <div className="empty">{t("common.loading")}</div>;
 
@@ -170,14 +208,48 @@ export default function SettingsPage() {
             <button
               key={code}
               type="button"
-              className={activeCurrency === code ? "choice active" : "choice"}
-              aria-pressed={activeCurrency === code}
-              onClick={() => setCurrency(code)}
+              className={!customOpen && activeCurrency === code ? "choice active" : "choice"}
+              aria-pressed={!customOpen && activeCurrency === code}
+              onClick={() => chooseCurrency(code)}
             >
               {currencyLabel(code)}
             </button>
           ))}
+          <button
+            type="button"
+            className={customOpen ? "choice active" : "choice"}
+            aria-pressed={customOpen}
+            aria-expanded={customOpen}
+            aria-controls="settings-custom-currency"
+            onClick={openCustomCurrency}
+          >
+            {t("settings.currency.other")}
+          </button>
         </div>
+        {customOpen && (
+          <div className="field" id="settings-custom-currency" style={{ marginTop: 12 }}>
+            <label htmlFor="settings-custom-currency-input">
+              {t("settings.currency.customLabel")}
+            </label>
+            <input
+              id="settings-custom-currency-input"
+              ref={customInput}
+              value={customDraft}
+              maxLength={CUSTOM_MAX_LENGTH}
+              placeholder={t("settings.currency.customPlaceholder")}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => setCustomDraft(e.target.value)}
+              onBlur={applyCustomCurrency}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                }
+              }}
+            />
+          </div>
+        )}
         <p className="subtitle" style={{ marginBottom: 0 }}>
           {t("settings.currency.subtitle")}
         </p>

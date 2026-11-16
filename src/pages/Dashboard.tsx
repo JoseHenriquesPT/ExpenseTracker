@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -8,7 +8,7 @@ import { useLiveQuery, useSingleMode } from "../db/live";
 import { db } from "../db/db";
 import type { SettlementRecord } from "../db/types";
 import {
-  buildIncomeSplits, buildOverview, computeSettlement,
+  buildIncomeSplits, buildOverview, categoryShares, computeSettlement,
   monthStart, monthEnd, yearStart, yearEnd, toISO,
   type CategoryTotal, type IncomeSplit, type Settlement, type SplitSettings,
 } from "../lib/finance";
@@ -37,6 +37,8 @@ export default function Dashboard() {
   const single = useSingleMode();
   const labels = modeText(single);
   const online = useOnline();
+  // The headline pies can be swapped for a plain name / amount / share list.
+  const [asList, setAsList] = useState(false);
   const config = useLiveQuery(() => db.config.get({ key: "config" }), []);
   const income = useLiveQuery(() => db.income.toArray(), []);
   const expenses = useLiveQuery(() => db.expenses.toArray(), []);
@@ -156,20 +158,41 @@ export default function Dashboard() {
 
       {/* The headline pies: each person's income split into their fair share of
           the shared spending, their own individual spending, what they
-          invested and what they saved. */}
+          invested and what they saved. The switch turns every card into a
+          name / amount / share list instead. */}
+      <div className="charts-head">
+        <div className="segmented" role="group" aria-label={t("dashboard.view.label")}>
+          <button
+            className={asList ? "seg" : "seg active"}
+            aria-pressed={!asList}
+            onClick={() => setAsList(false)}
+          >
+            {t("dashboard.view.charts")}
+          </button>
+          <button
+            className={asList ? "seg active" : "seg"}
+            aria-pressed={asList}
+            onClick={() => setAsList(true)}
+          >
+            {t("dashboard.view.list")}
+          </button>
+        </div>
+      </div>
       <div className="charts">
-        <PieCard title={t("dashboard.pie.spending")} data={spendingByCategory} />
-        <PieCard title={t("dashboard.pie.income")} data={overview.income} />
+        <PieCard title={t("dashboard.pie.spending")} data={spendingByCategory} list={asList} />
+        <PieCard title={t("dashboard.pie.income")} data={overview.income} list={asList} />
         <PersonPie
           title={labels.totalsTitle(p1)}
           expensesLabel={labels.splitCommon}
           split={splits.p1}
+          list={asList}
         />
         {!single && (
           <PersonPie
             title={labels.totalsTitle(p2)}
             expensesLabel={labels.splitCommon}
             split={splits.p2}
+            list={asList}
           />
         )}
       </div>
@@ -403,9 +426,9 @@ function Card({ label, value, tone }: { label: string; value: number; tone?: "po
 /** One person's income split: their fair share of shared spending, their own
  *  individual spending, invested and saved — always shown as separate slices. */
 function PersonPie({
-  title, expensesLabel, split,
+  title, expensesLabel, split, list,
 }: {
-  title: string; expensesLabel: string; split: IncomeSplit;
+  title: string; expensesLabel: string; split: IncomeSplit; list?: boolean;
 }) {
   const { t } = useTranslation();
   const data: CategoryTotal[] = [
@@ -420,33 +443,45 @@ function PersonPie({
       : split.income === 0
       ? t("dashboard.pie.noIncome")
       : undefined;
-  return <PieCard title={title} data={data} note={note} />;
+  return <PieCard title={title} data={data} note={note} list={list} />;
 }
 
 function PieCard({
-  title, data, note,
+  title, data, note, list,
 }: {
-  title: string; data: CategoryTotal[]; note?: string;
+  title: string; data: CategoryTotal[]; note?: string; list?: boolean;
 }) {
   const { t } = useTranslation();
   // Charts ignore zero/negative slices (matches the overview hiding blanks).
-  const slices = data.filter((d) => d.value > 0);
+  const rows = categoryShares(data);
   return (
     <div className="chart-card panel">
       <h3>{title}</h3>
-      {slices.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="empty">{t("dashboard.pie.noData")}</div>
+      ) : list ? (
+        <ul className="chart-list">
+          {rows.map((d) => (
+            <li key={d.category}>
+              <span>{d.category}</span>
+              <span className="chart-amount">
+                {fmtMoney(d.value)}{" "}
+                <span className="chart-share">({(d.share * 100).toFixed(1)}%)</span>
+              </span>
+            </li>
+          ))}
+        </ul>
       ) : (
         <ResponsiveContainer width="100%" height={260}>
           <PieChart>
             <Pie
-              data={slices}
+              data={rows}
               dataKey="value"
               nameKey="category"
               cy="42%"
               outerRadius={80}
             >
-              {slices.map((_, i) => (
+              {rows.map((_, i) => (
                 <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
               ))}
             </Pie>

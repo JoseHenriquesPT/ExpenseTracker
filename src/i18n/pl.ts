@@ -241,6 +241,11 @@ const pl: typeof en = {
       overspent: "Przekroczenie o {{amount}} w tym okresie.",
       noIncome: "Brak zarejestrowanego dochodu dla tej osoby.",
     },
+    view: {
+      label: "Widok",
+      charts: "Wykresy",
+      list: "Lista",
+    },
     settlement: {
       title: "Rozliczenie — {{period}}",
       settledRecorded: "Wszystko rozliczone ✓ — przelew zarejestrowany za {{period}}.",

@@ -238,6 +238,11 @@ const pt: typeof en = {
       overspent: "Excedeu em {{amount}} este período.",
       noIncome: "Sem rendimento registado para esta pessoa.",
     },
+    view: {
+      label: "Vista",
+      charts: "Gráficos",
+      list: "Lista",
+    },
     settlement: {
       title: "Acerto de contas — {{period}}",
       settledRecorded: "Tudo liquidado ✓ — transferência registada para {{period}}.",

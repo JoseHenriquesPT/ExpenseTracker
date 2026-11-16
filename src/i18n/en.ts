@@ -239,6 +239,11 @@ const en = {
       overspent: "Overspent by {{amount}} this period.",
       noIncome: "No income recorded for this person.",
     },
+    view: {
+      label: "Chart view",
+      charts: "Charts",
+      list: "List",
+    },
     settlement: {
       title: "Settlement — {{period}}",
       settledRecorded: "All settled ✓ — transfer recorded for {{period}}.",

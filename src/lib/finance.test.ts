@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildIncomeSplits,
   buildOverview,
+  categoryShares,
   computeSettlement,
   filterByWindow,
   investmentUnits,
@@ -545,5 +546,24 @@ describe("buildIncomeSplits — custom split", () => {
       start, end
     );
     expect(p1.expenses).toBe(300); // 75% of 400
+  });
+});
+
+describe("categoryShares", () => {
+  it("drops empty slices and gives each one its share of the total", () => {
+    const rows = categoryShares([
+      { category: "Rent", value: 400 },
+      { category: "Food", value: 100 },
+      { category: "Unused", value: 0 },
+      { category: "Refund", value: -50 },
+    ]);
+    expect(rows).toEqual([
+      { category: "Rent", value: 400, share: 0.8 },
+      { category: "Food", value: 100, share: 0.2 },
+    ]);
+  });
+
+  it("returns no rows when nothing was spent", () => {
+    expect(categoryShares([{ category: "Rent", value: 0 }])).toEqual([]);
   });
 });

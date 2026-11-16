@@ -118,6 +118,19 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .charts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
 .chart-card h3 { margin: 0 0 8px; font-size: 14px; }
+.charts-head { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.chart-list { list-style: none; margin: 0; padding: 0; }
+.chart-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.chart-list li:last-child { border-bottom: none; }
+.chart-amount { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.chart-share { color: var(--muted); font-size: 12px; }
 
 .empty { color: var(--muted); padding: 24px; text-align: center; }
 .row-form td { padding: 6px 8px; }

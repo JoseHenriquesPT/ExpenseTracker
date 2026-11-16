@@ -54,6 +54,22 @@ export interface CategoryTotal {
   value: number;
 }
 
+export interface CategoryShare extends CategoryTotal {
+  /** Fraction of the sliced total (0–1). */
+  share: number;
+}
+
+/** Category totals with their share of the total, for the Dashboard's list
+ *  view. Mirrors the pies: zero and negative slices are dropped. */
+export function categoryShares(rows: CategoryTotal[]): CategoryShare[] {
+  const slices = rows.filter((r) => r.value > 0);
+  const total = slices.reduce((acc, r) => acc + r.value, 0);
+  return slices.map((r) => ({
+    ...r,
+    share: total > 0 ? r.value / total : 0,
+  }));
+}
+
 function inWindow(dateISO: string, start: string, end: string): boolean {
   return dateISO >= start && dateISO <= end;
 }
